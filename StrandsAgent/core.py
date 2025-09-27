@@ -14,7 +14,7 @@ class StrandsAgent:
     政策提案システムのコアエージェント
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None, model_id: str = "anthropic.claude-3-haiku-20240307-v1:0", region_name: str = "us-east-1"):
+    def __init__(self, config: Optional[Dict[str, Any]] = None, model_id: str = "claude-sonnet-4", region_name: str = "us-west-2"):
         self.config = config or {}
         self.version = "1.0.0"
         self.model_id = model_id
@@ -80,28 +80,71 @@ class StrandsAgent:
             # プロンプト構築
             prompt = self._build_policy_analysis_prompt(citizen_input)
 
-            # Claude 3 Haikuを使用
-            response = client.invoke_model(
-                modelId=self.model_id,
-                body=json.dumps({
-                    "anthropic_version": "bedrock-2023-05-31",
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    "max_tokens": 4000,
-                    "temperature": 0.3
-                })
-            )
+            # モデルIDに応じてInference Profileを使用
+            if "claude-sonnet-4" in self.model_id:
+                # Claude Sonnet 4用の正しいInference Profile ID
+                inference_profile_id = "us.anthropic.claude-sonnet-4-20250514-v1:0"
+                response = client.invoke_model(
+                    modelId=inference_profile_id,
+                    body=json.dumps({
+                        "anthropic_version": "bedrock-2023-05-31",
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": prompt
+                            }
+                        ],
+                        "max_tokens": 4000,
+                        "temperature": 0.3
+                    })
+                )
+            elif "claude-3-5-sonnet" in self.model_id:
+                # Claude 3.5 Sonnet用のInference Profile ID
+                inference_profile_id = "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+                response = client.invoke_model(
+                    modelId=inference_profile_id,
+                    body=json.dumps({
+                        "anthropic_version": "bedrock-2023-05-31",
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": prompt
+                            }
+                        ],
+                        "max_tokens": 4000,
+                        "temperature": 0.3
+                    })
+                )
+            else:
+                # 従来のモデル（Claude 3 Haiku等）- 直接呼び出し
+                response = client.invoke_model(
+                    modelId=self.model_id,
+                    body=json.dumps({
+                        "anthropic_version": "bedrock-2023-05-31",
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": prompt
+                            }
+                        ],
+                        "max_tokens": 4000,
+                        "temperature": 0.3
+                    })
+                )
 
             response_body = json.loads(response['body'].read())
             ai_content = response_body['content'][0]['text']
 
             # JSON形式で返すように構造化
             try:
-                ai_analysis = json.loads(ai_content)
+                # コードブロック形式の場合は中身を抽出
+                if ai_content.strip().startswith('```json'):
+                    # ```json と ``` を除去
+                    json_content = ai_content.strip()
+                    json_content = json_content.replace('```json', '').replace('```', '').strip()
+                    ai_analysis = json.loads(json_content)
+                else:
+                    ai_analysis = json.loads(ai_content)
                 return ai_analysis
             except json.JSONDecodeError:
                 # JSONパースに失敗した場合はテキストとして返す
