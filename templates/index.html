@@ -30,7 +30,7 @@
         .header {
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             color: white;
-            padding: 30px;
+            padding: 20px;
             text-align: center;
         }
 
@@ -43,32 +43,25 @@
         .header .subtitle {
             font-size: 1.2em;
             opacity: 0.9;
-            margin-bottom: 20px;
         }
 
         .features {
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            flex-wrap: wrap;
+            display: none;
         }
 
         .feature {
-            background: rgba(255,255,255,0.1);
-            padding: 15px 25px;
-            border-radius: 25px;
-            backdrop-filter: blur(10px);
+            display: none;
         }
 
         .main-content {
-            padding: 40px;
+            padding: 20px;
         }
 
         .input-section {
             background: #f8f9fa;
             border-radius: 15px;
-            padding: 30px;
-            margin-bottom: 30px;
+            padding: 20px;
+            margin-bottom: 20px;
         }
 
         .input-section h2 {
@@ -133,7 +126,7 @@
 
         .loading {
             text-align: center;
-            padding: 40px;
+            padding: 20px;
             display: none;
         }
 
@@ -155,10 +148,8 @@
         .results-section {
             display: none;
             background: white;
-            border-radius: 15px;
-            padding: 30px;
-            margin-top: 30px;
-            border: 1px solid #e1e5e9;
+            margin-top: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
 
         .results-header {
@@ -166,7 +157,7 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 25px;
-            padding-bottom: 15px;
+            padding: 20px 20px 15px 20px;
             border-bottom: 2px solid #f1f3f4;
         }
 
@@ -185,48 +176,94 @@
             font-weight: 600;
         }
 
+        .document-layout {
+            background: white;
+            font-family: 'MS Mincho', 'Yu Mincho', serif;
+            padding: 40mm 30mm;
+            line-height: 1.8;
+            font-size: 11pt;
+            color: #333;
+        }
+
+        .document-header {
+            text-align: center;
+            margin-bottom: 30mm;
+            padding-bottom: 10mm;
+            border-bottom: 2px solid #333;
+        }
+
+        .document-title {
+            font-size: 18pt;
+            font-weight: bold;
+            margin-bottom: 5mm;
+            letter-spacing: 1px;
+        }
+
+        .document-subtitle {
+            font-size: 12pt;
+            color: #666;
+        }
+
+        .section {
+            margin-bottom: 20mm;
+            page-break-inside: avoid;
+        }
+
+        .section-title {
+            font-size: 14pt;
+            font-weight: bold;
+            margin-bottom: 8mm;
+            padding-bottom: 2mm;
+            border-bottom: 1px solid #666;
+        }
+
+        .section-content {
+            text-indent: 1em;
+            line-height: 1.8;
+        }
+
+        .article {
+            margin: 10mm 0;
+            padding: 8mm;
+            border-left: 3px solid #333;
+            background: #fafafa;
+        }
+
+        .article-title {
+            font-weight: bold;
+            margin-bottom: 5mm;
+        }
+
+        .article-content {
+            text-indent: 1em;
+        }
+
         .framework-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 25px;
-            margin-top: 25px;
+            display: none;
         }
 
         .framework-card {
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 25px;
-            border-left: 5px solid #667eea;
+            display: none;
         }
 
         .framework-title {
-            color: #1e3c72;
-            font-size: 1.2em;
-            font-weight: 700;
-            margin-bottom: 15px;
+            display: none;
         }
 
         .framework-content {
-            color: #444;
-            line-height: 1.6;
+            display: none;
         }
 
         .framework-content ul {
-            list-style-type: none;
-            padding: 0;
+            display: none;
         }
 
         .framework-content li {
-            margin-bottom: 8px;
-            padding-left: 20px;
-            position: relative;
+            display: none;
         }
 
         .framework-content li:before {
-            content: "▸";
-            color: #667eea;
-            position: absolute;
-            left: 0;
+            display: none;
         }
 
         .error-message {
@@ -249,26 +286,34 @@
             display: none;
         }
 
+        @media print {
+            body { background: white; padding: 0; }
+            .container { box-shadow: none; border-radius: 0; }
+            .header, .input-section, .loading, .error-message, .success-message { display: none; }
+            .results-header { display: none; }
+            .document-layout { padding: 20mm; }
+        }
+
         @media (max-width: 768px) {
             .header h1 {
                 font-size: 2em;
-            }
-
-            .features {
-                gap: 15px;
-            }
-
-            .feature {
-                padding: 10px 15px;
-                font-size: 0.9em;
             }
 
             .main-content {
                 padding: 20px;
             }
 
-            .framework-grid {
-                grid-template-columns: 1fr;
+            .document-layout {
+                padding: 20mm 15mm;
+                font-size: 10pt;
+            }
+
+            .document-title {
+                font-size: 16pt;
+            }
+
+            .section-title {
+                font-size: 12pt;
             }
         }
     </style>
@@ -278,12 +323,7 @@
         <div class="header">
             <h1>政令市条例メーカーレベル政策立案AI</h1>
             <div class="subtitle">市民の声を議会提出可能レベルの政策提案に変換</div>
-            <div class="features">
-                <div class="feature">🏛️ 政令市レベル対応</div>
-                <div class="feature">📜 議会提出可能品質</div>
-                <div class="feature">🤖 Claude 3 Haiku AI</div>
-                <div class="feature">⚡ リアルタイム分析</div>
-            </div>
+
         </div>
 
         <div class="main-content">
@@ -307,7 +347,7 @@
                 <div class="loading-spinner"></div>
                 <div>AI政策分析中...</div>
                 <div style="font-size: 0.9em; color: #666; margin-top: 10px;">
-                    Claude 3 Haikuが6つのフレームワークで包括的に分析しています
+                    政策提案を生成中...
                 </div>
             </div>
 
@@ -317,7 +357,7 @@
             <div class="results-section" id="resultsSection">
                 <div class="results-header">
                     <div class="results-title">政策分析結果</div>
-                    <div class="ai-badge">Claude 3 Haiku (Pure AI)</div>
+                    <div class="ai-badge">AI生成</div>
                 </div>
                 <div id="resultsContent"></div>
             </div>
@@ -367,22 +407,32 @@
 
         function displayResults(data) {
             const resultsContent = document.getElementById('resultsContent');
+            
+            // AIモデルバッジを更新
+            const aiBadge = document.querySelector('.ai-badge');
+            if (data.ai_engine) {
+                aiBadge.textContent = data.ai_engine;
+            }
 
-            let html = '';
+            let html = '<div class="document-layout">';
+
+            // 文書ヘッダー
+            html += `
+                <div class="document-header">
+                    <div class="document-title">政策提案書</div>
+                    <div class="document-subtitle">AI生成による政策立案</div>
+                </div>
+            `;
 
             // 政策提案概要
             if (data.政策提案概要) {
                 html += `
-                    <div class="framework-card" style="grid-column: 1 / -1; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                        <div class="framework-title" style="color: white;">政策提案概要</div>
-                        <div class="framework-content" style="color: white;">
-                            ${data.政策提案概要}
-                        </div>
+                    <div class="section">
+                        <div class="section-title">政策提案概要</div>
+                        <div class="section-content">${data.政策提案概要}</div>
                     </div>
                 `;
             }
-
-            html += '<div class="framework-grid">';
 
             // 主要セクションを表示
             const sections = [
@@ -397,10 +447,10 @@
                 const content = data[section.key];
                 if (content) {
                     html += `
-                        <div class="framework-card">
-                            <div class="framework-title">${section.title}</div>
-                            <div class="framework-content">
-                                ${formatSectionContent(content, section.key)}
+                        <div class="section">
+                            <div class="section-title">${section.title}</div>
+                            <div class="section-content">
+                                ${formatDocumentContent(content, section.key)}
                             </div>
                         </div>
                     `;
@@ -410,10 +460,24 @@
             // AI生成の純粋なレスポンスがある場合
             if (data.ai_response) {
                 html += `
-                    <div class="framework-card" style="grid-column: 1 / -1;">
-                        <div class="framework-title">AI分析結果</div>
-                        <div class="framework-content">
+                    <div class="section">
+                        <div class="section-title">AI分析結果</div>
+                        <div class="section-content">
                             <pre style="white-space: pre-wrap; font-family: inherit;">${data.ai_response}</pre>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // メタ情報を追加
+            if (data.timestamp) {
+                html += `
+                    <div class="section" style="border-top: 1px solid #ccc; padding-top: 10mm; margin-top: 20mm;">
+                        <div class="section-title">生成情報</div>
+                        <div class="section-content">
+                            <div><strong>生成日時:</strong> ${new Date(data.timestamp).toLocaleString('ja-JP')}</div><br>
+                            <div><strong>AI エンジン:</strong> ${data.ai_engine || 'Pure Bedrock Claude 3 Haiku'}</div><br>
+                            <div><strong>品質レベル:</strong> ${data.output_quality || '議会提出可能レベル'}</div>
                         </div>
                     </div>
                 `;
@@ -421,22 +485,11 @@
 
             html += '</div>';
 
-            // メタ情報を追加
-            if (data.timestamp) {
-                html += `
-                    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e1e5e9; font-size: 0.9em; color: #666;">
-                        <div><strong>生成日時:</strong> ${new Date(data.timestamp).toLocaleString('ja-JP')}</div>
-                        <div><strong>AI エンジン:</strong> ${data.ai_engine || 'Pure Bedrock Claude 3 Haiku'}</div>
-                        <div><strong>品質レベル:</strong> ${data.output_quality || '議会提出可能レベル'}</div>
-                    </div>
-                `;
-            }
-
             resultsContent.innerHTML = html;
             document.getElementById('resultsSection').style.display = 'block';
         }
 
-        function formatSectionContent(content, sectionKey) {
+        function formatDocumentContent(content, sectionKey) {
             if (typeof content === 'string') {
                 return content;
             }
@@ -476,7 +529,7 @@
                         html += '</ul><br>';
                     } else if (typeof value === 'object') {
                         html += `<div><strong>${key}:</strong></div>`;
-                        html += formatSectionContent(value, sectionKey);
+                        html += formatDocumentContent(value, sectionKey);
                         html += '<br>';
                     } else {
                         html += `<div><strong>${key}:</strong> ${value}</div><br>`;
