@@ -1,6 +1,6 @@
 # 政令市条例メーカーレベル政策立案AI v2.0
 
-AWS Bedrock Claude 3 Haiku を統合したStrandsAgentによる、市民の意見を議会提出可能レベルの政策提案に変換するAIシステムです。
+AWS Bedrock Claude（複数モデル対応）を統合したStrandsAgentによる、市民の意見を議会提出可能レベルの政策提案に変換するAIシステムです。
 
 ## システム概要図
 
@@ -16,7 +16,7 @@ AWS Bedrock Claude 3 Haiku を統合したStrandsAgentによる、市民の意�
                   ▼
 ┌─────────────────────┐
 │    StrandsAgent v2.0 (AI統合)            │
-│     AWS Bedrock Claude 3 Haiku           │
+│  AWS Bedrock Claude (マルチモデル対応)   │
 │                                          │
 │  ┌─────────────────┐  │
 │  │   純粋AI政策分析:                │  │
@@ -55,7 +55,7 @@ AWS Bedrock Claude 3 Haiku を統合したStrandsAgentによる、市民の意�
 - Python 3.11 以上がインストールされていること
 - AWS CLIがインストールされていること
 - インターネット接続があること
-- AWS アカウントとBedrock Claude 3 Haikuへのアクセス権限
+- AWS アカウントとBedrock Claudeモデルへのアクセス権限
 
 ### 1. Python環境の準備
 
@@ -80,6 +80,15 @@ pip install -r requirements.txt
 ```
 
 ### 3. AWS認証設定
+AWSのCMO環境にて、CloudShellを開き以下のコマンドを実行
+aws configure export-credentials
+
+以下の値をメモしておき
+ "AccessKeyId":"値"
+ "SecretAccessKey:"値"
+ "SessionToken":"値"
+ 
+
 
 ```cmd
 # AWS CLIで認証情報を設定
@@ -87,9 +96,10 @@ aws configure
 ```
 
 以下の情報を入力：
-- **AWS Access Key ID**: [あなたのアクセスキー]
-- **AWS Secret Access Key**: [あなたのシークレットキー]
-- **Default region name**: `us-east-1` ⚠️ 必須：Claude 3 Haikuが利用可能
+- **AWS Access Key ID**: [上記でメモしたアクセスキー]
+- **AWS Secret Access Key**: [上記でメモしたシークレットキー]
+- **AWS AWS Session Token&&**: [上記でメモしたセッショントークン]
+- **Default region name**: `us-west-2` ⚠️ 必須：Claudeモデルが利用可能
 - **Default output format**: `json`
 
 ### 4. アプリケーション起動
@@ -125,7 +135,7 @@ python app.py
    ```python
    result = strands_agent.process_citizen_input(citizen_input)
    ```
-   - 市民入力を直接AWS Bedrock Claude 3 Haikuに送信
+   - 市民入力を直接AWS Bedrock Claudeモデルに送信
    - AIが完全に0から政策分析を実行
    - テンプレート不使用、純粋AI応答
 
@@ -314,17 +324,21 @@ def __init__(self, config: Optional[Dict[str, Any]] = None,
 
 **利用可能なモデル例:**
 
-| モデル | model_id | 特徴 | 推奨用途 |
-|---|---|---|---|
-| **Claude 3 Haiku** | `anthropic.claude-3-haiku-20240307-v1:0` | 高速・軽量 | 基本的な政策分析 |
-| **Claude 3 Sonnet** | `anthropic.claude-3-sonnet-20240229-v1:0` | バランス型 | 詳細な政策分析 |
-| **Claude 3 Opus** | `anthropic.claude-3-opus-20240229-v1:0` | 最高性能 | 複雑な政策分析 |
-| **Claude 3.5 Sonnet** | `anthropic.claude-3-5-sonnet-20240620-v1:0` | 最新・高性能 | プレミアム分析 |
+| モデル | model_id | 特徴 | 推奨用途 | 呼び出し方式 |
+|---|---|---|---|---|
+| **Claude 3 Haiku** | `anthropic.claude-3-haiku-20240307-v1:0` | 高速・軽量 | 基本的な政策分析 | 直接呼び出し |
+| **Claude 3 Sonnet** | `anthropic.claude-3-sonnet-20240229-v1:0` | バランス型 | 詳細な政策分析 | 直接呼び出し |
+| **Claude 3 Opus** | `anthropic.claude-3-opus-20240229-v1:0` | 最高性能 | 複雑な政策分析 | 直接呼び出し |
+| **Claude 3.5 Sonnet** | `anthropic.claude-3-5-sonnet-20240620-v1:0` | 最新・高性能 | プレミアム分析 | Inference Profile |
+| **Claude Sonnet 4** | `anthropic.claude-sonnet-4-20250514-v1:0` | 最新・最高性能 | 最高品質分析 | Inference Profile |
 
 **モデル変更例:**
 ```python
-# 高性能モデルに変更
-agent = StrandsAgent(model_id="anthropic.claude-3-5-sonnet-20240620-v1:0")
+# 高性能モデルに変更（Inference Profile対応）
+agent = StrandsAgent(model_id="anthropic.claude-sonnet-4-20250514-v1:0")
+
+# 従来モデル（直接呼び出し）
+agent = StrandsAgent(model_id="anthropic.claude-3-haiku-20240307-v1:0")
 
 # 異なるリージョンを使用
 agent = StrandsAgent(
@@ -668,9 +682,16 @@ Address already in use: Port 5000
 ```python
 # テスト用コード（Python コンソールで実行）
 from StrandsAgent import StrandsAgent
+
+# デフォルトモデル（Claude 4 Sonnet）
 agent = StrandsAgent()
 result = agent.process_citizen_input("テスト")
-print(result.keys())  # 6つのフレームワークが表示されるはず
+print(result.keys())  # 政策提案の構造が表示される
+
+# 高性能モデル（Claude Sonnet 4）
+agent_advanced = StrandsAgent(model_id="anthropic.claude-sonnet-4-20250514-v1:0")
+result_advanced = agent_advanced.process_citizen_input("テスト")
+print("高性能モデル動作確認完了")
 ```
 
 ---
@@ -680,7 +701,9 @@ print(result.keys())  # 6つのフレームワークが表示されるはず
 ```
 ├── README.md                    # このドキュメント
 ├── app.py                      # Flask Webアプリケーション（メイン）
-├── bedrock_integration.py      # AWS Bedrock統合モジュール
+├── apprunner.yaml             # AWS App Runner設定ファイル
+├── Dockerfile                 # コンテナ化用設定
+├── AWS_DEPLOY_GUIDE.md        # AWSデプロイ手順書
 ├── requirements.txt            # Python依存関係定義
 ├── StrandsAgent/              # 政策分析フレームワーク
 │   ├── __init__.py            # パッケージ初期化
@@ -694,20 +717,22 @@ print(result.keys())  # 6つのフレームワークが表示されるはず
 ### 主要ファイルの役割
 
 - **`app.py`**: Flask Webサーバー、APIエンドポイント、StrandsAgent + Bedrock統合制御
-- **`bedrock_integration.py`**: AWS Bedrock Claude 3 Haikuとの通信、プロンプト管理
-- **`StrandsAgent/core.py`**: 6つのフレームワークによる基本政策分析
+- **`StrandsAgent/core.py`**: Bedrock統合AI政策分析（Inference Profile対応）
+- **`apprunner.yaml`**: AWS App Runner用設定ファイル
+- **`AWS_DEPLOY_GUIDE.md`**: AWSクラウドデプロイ手順書
 - **`templates/index.html`**: ユーザーインターフェース、結果表示ロジック
 
 ---
 
 ## システム設計思想
 
-### なぜStrandsAgent + Claude 3 Haikuなのか？
+### なぜStrandsAgent + Bedrock Claudeなのか？
 
-1. **構造化分析**: StrandsAgentが政策の基本構造を整理
-2. **専門知識**: Claude 3 Haikuが法律・行政の専門知識を提供
-3. **品質保証**: 両方の組み合わせで議会提出可能レベルを実現
-4. **スケーラビリティ**: 将来的な機能拡張への対応
+1. **マルチモデル対応**: 用途に応じて最適なClaudeモデルを選択可能
+2. **Inference Profile対応**: 最新の高性能モデル（Claude Sonnet 4等）に対応
+3. **専門知識**: Claudeが法律・行政の専門知識を提供
+4. **品質保証**: AI統合により議会提出可能レベルを実現
+5. **スケーラビリティ**: AWS App Runnerでクラウド展開可能
 
 ### 出力品質レベル
 
@@ -721,10 +746,10 @@ print(result.keys())  # 6つのフレームワークが表示されるはず
 
 ### プロンプトのカスタマイズ
 
-`bedrock_integration.py` の `_build_enhancement_prompt()` メソッドで、Claude 3 Haikuへの指示内容を変更可能：
+`StrandsAgent/core.py` の `_build_policy_analysis_prompt()` メソッドで、Claudeへの指示内容を変更可能：
 
 ```python
-def _build_enhancement_prompt(self, citizen_input: str, basic_analysis: Dict[str, Any]) -> str:
+def _build_policy_analysis_prompt(self, citizen_input: str) -> str:
     prompt = f"""
     あなたは政令市レベルの政策立案専門家として...
     [カスタマイズ可能]
