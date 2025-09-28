@@ -1,6 +1,6 @@
 # 政令市条例メーカーレベル政策立案AI v2.0
 
-AWS Bedrock Claude（複数モデル対応）を統合したStrandsAgentによる、市民の意見を議会提出可能レベルの政策提案に変換するAIシステムです。
+AWS Bedrock Claude Sonnet 4を統合したStrands Agentsによる、市民の意見を議会提出可能レベルの条例案に変換するAIシステムです。
 
 ## システム概要図
 
@@ -15,8 +15,8 @@ AWS Bedrock Claude（複数モデル対応）を統合したStrandsAgentによ�
                   │
                   ▼
 ┌─────────────────────┐
-│    StrandsAgent v2.0 (AI統合)            │
-│  AWS Bedrock Claude (マルチモデル対応)   │
+│    Strands Agents v1.9.1 (AI統合)       │
+│  AWS Bedrock Claude Sonnet 4            │
 │                                          │
 │  ┌─────────────────┐  │
 │  │   純粋AI政策分析:                │  │
@@ -74,6 +74,19 @@ webapp_env\Scripts\activate
 
 ### 2. 依存関係のインストール
 
+**方法1: uvコマンド（高速・推奨）**
+```cmd
+# uvをインストール（初回のみ）
+pip install uv
+
+# Strands Agentsパッケージを高速インストール
+uv pip install strands-agents strands-agents-tools strands-agents-builder
+
+# その他の依存関係をインストール
+uv pip install flask flask-cors python-dotenv requests
+```
+
+**方法2: 従来のpipコマンド**
 ```cmd
 # 必要なPythonパッケージをインストール
 pip install -r requirements.txt
@@ -131,13 +144,14 @@ python app.py
    - ユーザーが政策要望をテキストで入力
    - Flask サーバーがリクエストを受信
 
-2. **StrandsAgent AI統合分析** (`StrandsAgent/core.py`)
+2. **Strands Agent AI統合分析** (`app.py`)
    ```python
-   result = strands_agent.process_citizen_input(citizen_input)
+   result = agent(prompt)
+   ai_content = result.message['content'][0]['text']
    ```
-   - 市民入力を直接AWS Bedrock Claudeモデルに送信
-   - AIが完全に0から政策分析を実行
-   - テンプレート不使用、純粋AI応答
+   - 市民入力を直接AWS Bedrock Claude Sonnet 4に送信
+   - AIが完全に0から条例案を生成
+   - 実際の政策文書形式で出力
 
 3. **完全な政策提案生成**
    - 社会的課題の分析
@@ -157,38 +171,38 @@ python app.py
 |---|---|---|
 | **分析方式** | テンプレート + AI強化 | 純粋AI分析 |
 | **コード量** | 600行+ | 200行 |
-| **依存関係** | StrandsAgent + BedrockIntegration | StrandsAgent のみ |
+| **依存関係** | 複数SDK + BedrockIntegration | Strands Agents のみ |
 | **創造性** | 制限されたテンプレート | 無限のAI創造性 |
 | **保守性** | 複雑な依存関係 | シンプルな統合設計 |
 
 ---
 
-## 🎨 AI出力の豊富なカスタマイズ方法
+## 🎨 AI出力のカスタマイズ方法
 
-このシステムの出力は `StrandsAgent/core.py` を編集することで幅広くカスタマイズできます。
+このシステムの出力は `app.py` の `build_policy_prompt()` 関数を編集することでカスタマイズできます。
 
 ### 📝 主要編集ファイル
 ```
-StrandsAgent/core.py
-├── _build_policy_analysis_prompt() (120-199行目) - プロンプト内容
-├── _generate_ai_policy_analysis() (73-118行目) - AI設定
-└── __init__() (17-23行目) - モデル・リージョン設定
+app.py
+├── build_policy_prompt() (140-160行目) - プロンプト内容
+├── init_services() (35-45行目) - エージェント設定
+└── Agent() - モデル・名前設定
 ```
 
 ### 🎯 基本カスタマイズ
 
 | 要素 | 編集箇所 | デフォルト | カスタマイズ例 |
 |---|---|---|---|
-| **文量調整** | `max_tokens: 4000` (94行目) | 4000トークン | `8000` (詳細), `2000` (簡潔) |
-| **創造性** | `temperature: 0.3` (95行目) | 0.3 (保守的) | `0.8` (創造的), `0.1` (堅実) |
-| **AIモデル** | `model_id` (17行目) | Claude 3 Haiku | `claude-3-sonnet`, `claude-3-opus` |
-| **リージョン** | `region_name` (17行目) | us-east-1 | `ap-southeast-2`, `eu-west-1` |
+| **AIモデル** | `model=` (40行目) | Claude Sonnet 4 | `us.anthropic.claude-3-5-sonnet-20241022-v2:0` |
+| **エージェント名** | `name=` (41行目) | PolicyAnalysisAgent | 任意の名前 |
+| **プロンプト内容** | `build_policy_prompt()` | 条例案形式 | カスタム形式 |
+| **出力形式** | プロンプト内 | 政策文書形式 | 任意の形式 |
 
 ### 🏛️ 専門性・役割のカスタマイズ
 
-**現在の設定 (124行目):**
+**現在の設定 (build_policy_prompt関数):**
 ```python
-あなたは政令市レベルの政策立案専門家として...
+あなたは政令市の法制執務担当職員です...
 ```
 
 **カスタマイズ例:**
@@ -309,17 +323,18 @@ StrandsAgent/core.py
 
 ---
 
-## 🤖 Amazon Bedrockモデル・マルチエージェント拡張
+## 🤖 Amazon Bedrockモデルの変更
 
-### 🔄 Bedrockモデルの変更
+### 🔄 モデル変更方法
 
-**基本的なモデル変更 (17行目):**
+**app.pyでのモデル変更 (40行目):**
 
 ```python
-# StrandsAgent/core.py の __init__ メソッド
-def __init__(self, config: Optional[Dict[str, Any]] = None,
-             model_id: str = "anthropic.claude-3-haiku-20240307-v1:0",
-             region_name: str = "us-east-1"):
+# init_services()関数内
+agent = Agent(
+    model="us.anthropic.claude-sonnet-4-20250514-v1:0",  # ← ここを変更
+    name="PolicyAnalysisAgent"
+)
 ```
 
 **利用可能なモデル例:**
@@ -330,76 +345,47 @@ def __init__(self, config: Optional[Dict[str, Any]] = None,
 | **Claude 3 Sonnet** | `anthropic.claude-3-sonnet-20240229-v1:0` | バランス型 | 詳細な政策分析 | 直接呼び出し |
 | **Claude 3 Opus** | `anthropic.claude-3-opus-20240229-v1:0` | 最高性能 | 複雑な政策分析 | 直接呼び出し |
 | **Claude 3.5 Sonnet** | `anthropic.claude-3-5-sonnet-20240620-v1:0` | 最新・高性能 | プレミアム分析 | Inference Profile |
-| **Claude Sonnet 4** | `anthropic.claude-sonnet-4-20250514-v1:0` | 最新・最高性能 | 最高品質分析 | Inference Profile |
+| **Claude Sonnet 4** | `us.anthropic.claude-sonnet-4-20250514-v1:0` | 最新・最高性能 | 最高品質分析 | Inference Profile |
 
 **モデル変更例:**
 ```python
-# 高性能モデルに変更（Inference Profile対応）
-agent = StrandsAgent(model_id="anthropic.claude-sonnet-4-20250514-v1:0")
+# Claude Sonnet 4（現在の設定）
+agent = Agent(
+    model="us.anthropic.claude-sonnet-4-20250514-v1:0",
+    name="PolicyAnalysisAgent"
+)
 
-# 従来モデル（直接呼び出し）
-agent = StrandsAgent(model_id="anthropic.claude-3-haiku-20240307-v1:0")
+# Claude 3.5 Sonnet v2に変更
+agent = Agent(
+    model="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+    name="PolicyAnalysisAgent"
+)
 
-# 異なるリージョンを使用
-agent = StrandsAgent(
-    model_id="anthropic.claude-3-sonnet-20240229-v1:0",
-    region_name="ap-southeast-2"
+# Claude 3 Sonnetに変更
+agent = Agent(
+    model="anthropic.claude-3-sonnet-20240229-v1:0",
+    name="PolicyAnalysisAgent"
 )
 ```
 
-### 🔗 マルチエージェントシステムの実装
+## 📋 技術仕様
 
-#### 方法1: 複数エージェントの並列実行
+### 現在の構成
+- **AI SDK**: strands-agents v1.9.1
+- **AIモデル**: Claude Sonnet 4 (us.anthropic.claude-sonnet-4-20250514-v1:0)
+- **フレームワーク**: Flask
+- **AWS サービス**: Bedrock (us-west-2)
+- **出力形式**: 実際の条例案形式
 
-**新しいクラスを作成 (`multi_agent.py`):**
-
-```python
-from StrandsAgent import StrandsAgent
-import asyncio
-import json
-
-class MultiAgentPolicySystem:
-    def __init__(self):
-        # 専門分野別エージェント
-        self.legal_agent = StrandsAgent(
-            model_id="anthropic.claude-3-sonnet-20240229-v1:0"
-        )
-        self.financial_agent = StrandsAgent(
-            model_id="anthropic.claude-3-haiku-20240307-v1:0"
-        )
-        self.implementation_agent = StrandsAgent(
-            model_id="anthropic.claude-3-haiku-20240307-v1:0"
-        )
-        self.evaluation_agent = StrandsAgent(
-            model_id="anthropic.claude-3-5-sonnet-20240620-v1:0"
-        )
-
-    def analyze_with_multiple_agents(self, citizen_input: str):
-        """複数エージェントによる分析"""
-
-        # 1. 基本政策分析
-        basic_analysis = self.legal_agent.process_citizen_input(citizen_input)
-
-        # 2. 財政専門分析
-        financial_prompt = f"財政専門家として以下の政策を分析: {citizen_input}"
-        financial_analysis = self.financial_agent.process_citizen_input(financial_prompt)
-
-        # 3. 実施専門分析
-        impl_prompt = f"実施・運用専門家として以下の政策を分析: {citizen_input}"
-        implementation_analysis = self.implementation_agent.process_citizen_input(impl_prompt)
-
-        # 4. 評価エージェント
-        eval_prompt = f"""
-        以下の3つの分析結果を評価・統合してください:
-
-        【法制分析】{json.dumps(basic_analysis, ensure_ascii=False)}
-        【財政分析】{json.dumps(financial_analysis, ensure_ascii=False)}
-        【実施分析】{json.dumps(implementation_analysis, ensure_ascii=False)}
-
-        最終的な統合政策提案を作成してください。
-        """
-
-        final_result = self.evaluation_agent.process_citizen_input(eval_prompt)
+### ファイル構成
+```
+municipal-policy-ai/
+├── app.py                 # メインアプリケーション
+├── templates/index.html   # フロントエンド
+├── requirements.txt       # 依存関係
+├── logs/app.log          # アプリケーションログ
+└── README.md             # このファイル
+```t.process_citizen_input(eval_prompt)
 
         return {
             "legal_analysis": basic_analysis,

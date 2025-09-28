@@ -8,30 +8,45 @@ import os
 from datetime import datetime
 from typing import Dict, Any
 
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 
-# AI統合政策分析モジュールを使用
-from StrandsAgent import StrandsAgent
+# strands-agentsライブラリを使用
+from strands import Agent
 
 # Flaskアプリケーション初期化
 app = Flask(__name__)
 CORS(app)  # CORS設定
 
-# ロガー設定
-logging.basicConfig(level=logging.INFO)
+# ログディレクトリ作成
+log_dir = "logs"
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
+
+# ロガー設定（コンソールとファイル両方に出力）
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(os.path.join(log_dir, 'app.log'), encoding='utf-8'),
+        logging.StreamHandler()  # コンソール出力も維持
+    ]
+)
 logger = logging.getLogger(__name__)
 
 # グローバル変数でインスタンスを保持
-strands_agent = None
+agent = None
 
 def init_services():
     """サービス初期化"""
-    global strands_agent
+    global agent
 
-    if strands_agent is None:
-        strands_agent = StrandsAgent()
-        logger.info("StrandsAgent with integrated AI initialized")
+    if agent is None:
+        agent = Agent(
+            model="us.anthropic.claude-sonnet-4-20250514-v1:0",
+            name="PolicyAnalysisAgent"
+        )
+        logger.info("Strands Agent initialized")
 
 @app.route('/')
 def index():
@@ -63,29 +78,30 @@ def analyze_policy():
 
         logger.info(f"政策提案処理開始: {citizen_input[:50]}...")
 
-        # Bedrock AI分析を実行（pure AIモード）
-        use_bedrock = data.get('use_bedrock', True)
+        # Strands Agentで政策分析を実行
+        try:
+            prompt = build_policy_prompt(citizen_input)
+            result = agent(prompt)
+            # AgentResult.messageは辞書形式でcontent配列を持つ
+            ai_content = result.message['content'][0]['text']
+            
+            # レスポンスを構造化
+            final_result = {
+                "政策提案概要": ai_content,
+                "ai_engine": f"Strands Agent ({agent.name})",
+                "timestamp": datetime.now().isoformat(),
+                "output_quality": "議会提出可能レベル"
+            }
+            
+            logger.info("Strands Agent分析完了")
 
-        if use_bedrock:
-            try:
-                # 統合されたStrandsAgentでAI分析を実行
-                final_result = strands_agent.process_citizen_input(citizen_input)
-                logger.info("StrandsAgent AI分析完了")
-
-            except Exception as e:
-                logger.error(f"StrandsAgent AI分析でエラー: {str(e)}")
-                return jsonify({
-                    'error': 'AI分析エラー',
-                    'details': str(e),
-                    'statusCode': 500
-                }), 500
-        else:
-            # 統合AIを使用しない場合はエラー
+        except Exception as e:
+            logger.error(f"Strands Agent分析でエラー: {str(e)}")
             return jsonify({
-                'error': 'テンプレートは削除されました',
-                'details': 'use_bedrock=trueを指定してください',
-                'statusCode': 400
-            }), 400
+                'error': 'AI分析エラー',
+                'details': str(e),
+                'statusCode': 500
+            }), 500
 
         logger.info("政策提案生成完了")
 
@@ -110,7 +126,7 @@ def health_check():
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
         'services': {
-            'strands_agent_with_ai': strands_agent is not None
+            'strands_agent': agent.name if agent else None
         }
     })
 
@@ -132,11 +148,47 @@ def internal_error(error):
         'statusCode': 500
     }), 500
 
+def build_policy_prompt(citizen_input: str) -> str:
+    """政策分析用プロンプトの構築"""
+    return f"""
+あなたは政令市の法制執務担当職員です。以下の市民意見を受けて、実際の政策文書形式で条例案を作成してください。
+
+【市民の意見】
+{citizen_input}
+
+以下の形式で条例案を作成してください：
+
+【条例名】
+（具体的な条例名を記載）
+
+第一条（目的）
+この条例は、（目的を記載）ことを目的とする。
+
+第二条（定義）
+この条例において、次の各号に掲げる用語の意義は、当該各号に定めるところによる。
+（一）（用語定義）
+（二）（用語定義）
+
+第三条以降（具体的な条文）
+（必要な条文を順次記載）
+
+附則
+この条例は、公布の日から施行する。
+
+【提案理由書】
+（条例制定の背景、必要性、期待される効果を記載）
+
+【財政影響調書】
+（予算見積もり、財源確保方法、費用対効果を記載）
+
+実際の政策文書として使用できるレベルで作成し、法的根拠や他法令との整合性も考慮してください。
+"""
+
 if __name__ == '__main__':
-    # App Runner対応
-    import os
     port = int(os.environ.get('PORT', 5000))
     debug_mode = os.environ.get('FLASK_ENV') != 'production'
+    
+    logger.info(f"アプリケーション起動開始 - ポート: {port}, デバッグモード: {debug_mode}")
     
     app.run(
         host='0.0.0.0',

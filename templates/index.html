@@ -178,11 +178,12 @@
 
         .document-layout {
             background: white;
-            font-family: 'MS Mincho', 'Yu Mincho', serif;
-            padding: 40mm 30mm;
-            line-height: 1.8;
-            font-size: 11pt;
-            color: #333;
+            font-family: 'MS Mincho', 'Yu Mincho', 'Hiragino Mincho ProN', serif;
+            padding: 30mm 25mm;
+            line-height: 2.0;
+            font-size: 12pt;
+            color: #000;
+            text-align: justify;
         }
 
         .document-header {
@@ -193,10 +194,11 @@
         }
 
         .document-title {
-            font-size: 18pt;
+            font-size: 16pt;
             font-weight: bold;
-            margin-bottom: 5mm;
-            letter-spacing: 1px;
+            margin-bottom: 10mm;
+            letter-spacing: 2px;
+            text-align: center;
         }
 
         .document-subtitle {
@@ -209,17 +211,54 @@
             page-break-inside: avoid;
         }
 
+        .article-number {
+            font-size: 12pt;
+            font-weight: bold;
+            margin: 15mm 0 5mm 0;
+            text-indent: 0;
+        }
+        
+        .article-content {
+            margin-left: 1em;
+            text-indent: 1em;
+            margin-bottom: 10mm;
+        }
+        
         .section-title {
             font-size: 14pt;
             font-weight: bold;
-            margin-bottom: 8mm;
-            padding-bottom: 2mm;
-            border-bottom: 1px solid #666;
+            margin: 20mm 0 10mm 0;
+            text-align: center;
+            border: 2px solid #000;
+            padding: 5mm;
+            background: #f8f8f8;
         }
 
         .section-content {
             text-indent: 1em;
-            line-height: 1.8;
+            line-height: 2.0;
+            margin-bottom: 15mm;
+        }
+        
+        .section-content p {
+            margin-bottom: 1em;
+            text-indent: 1em;
+        }
+        
+        .section-content p:last-child {
+            margin-bottom: 0;
+        }
+        
+        .ordinance-body {
+            margin: 20mm 0;
+        }
+        
+        .ordinance-title {
+            font-size: 16pt;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 20mm;
+            letter-spacing: 3px;
         }
 
         .article {
@@ -429,7 +468,7 @@
                 html += `
                     <div class="section">
                         <div class="section-title">政策提案概要</div>
-                        <div class="section-content">${data.政策提案概要}</div>
+                        <div class="section-content">${formatTextWithLineBreaks(data.政策提案概要)}</div>
                     </div>
                 `;
             }
@@ -489,9 +528,21 @@
             document.getElementById('resultsSection').style.display = 'block';
         }
 
+        function formatTextWithLineBreaks(text) {
+            if (typeof text !== 'string') {
+                return text;
+            }
+            // 改行を<br>タグに変換し、空行を段落分けに変換
+            return text
+                .replace(/\n\n/g, '</p><p>')
+                .replace(/\n/g, '<br>')
+                .replace(/^/, '<p>')
+                .replace(/$/, '</p>');
+        }
+
         function formatDocumentContent(content, sectionKey) {
             if (typeof content === 'string') {
-                return content;
+                return formatTextWithLineBreaks(content);
             }
 
             if (sectionKey === '条文起草案' && content.条文) {
