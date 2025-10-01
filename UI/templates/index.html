@@ -45,14 +45,6 @@
             opacity: 0.9;
         }
 
-        .features {
-            display: none;
-        }
-
-        .feature {
-            display: none;
-        }
-
         .main-content {
             padding: 20px;
         }
@@ -211,19 +203,6 @@
             page-break-inside: avoid;
         }
 
-        .article-number {
-            font-size: 12pt;
-            font-weight: bold;
-            margin: 15mm 0 5mm 0;
-            text-indent: 0;
-        }
-        
-        .article-content {
-            margin-left: 1em;
-            text-indent: 1em;
-            margin-bottom: 10mm;
-        }
-        
         .section-title {
             font-size: 14pt;
             font-weight: bold;
@@ -238,71 +217,7 @@
             text-indent: 1em;
             line-height: 2.0;
             margin-bottom: 15mm;
-        }
-        
-        .section-content p {
-            margin-bottom: 1em;
-            text-indent: 1em;
-        }
-        
-        .section-content p:last-child {
-            margin-bottom: 0;
-        }
-        
-        .ordinance-body {
-            margin: 20mm 0;
-        }
-        
-        .ordinance-title {
-            font-size: 16pt;
-            font-weight: bold;
-            text-align: center;
-            margin-bottom: 20mm;
-            letter-spacing: 3px;
-        }
-
-        .article {
-            margin: 10mm 0;
-            padding: 8mm;
-            border-left: 3px solid #333;
-            background: #fafafa;
-        }
-
-        .article-title {
-            font-weight: bold;
-            margin-bottom: 5mm;
-        }
-
-        .article-content {
-            text-indent: 1em;
-        }
-
-        .framework-grid {
-            display: none;
-        }
-
-        .framework-card {
-            display: none;
-        }
-
-        .framework-title {
-            display: none;
-        }
-
-        .framework-content {
-            display: none;
-        }
-
-        .framework-content ul {
-            display: none;
-        }
-
-        .framework-content li {
-            display: none;
-        }
-
-        .framework-content li:before {
-            display: none;
+            white-space: pre-wrap;
         }
 
         .error-message {
@@ -362,7 +277,6 @@
         <div class="header">
             <h1>政令市条例メーカーレベル政策立案AI</h1>
             <div class="subtitle">市民の声を議会提出可能レベルの政策提案に変換</div>
-
         </div>
 
         <div class="main-content">
@@ -373,7 +287,7 @@
                         <label for="citizenInput">市民の意見・要望を入力してください</label>
                         <textarea
                             id="citizenInput"
-                            placeholder="例：子育て世帯を支援したい、高齢者の孤立を防ぎたい、環境問題を解決したい など"
+                            placeholder="例：公園にドッグランを作ってほしい、子育て世帯を支援したい、高齢者の孤立を防ぎたい など"
                         ></textarea>
                     </div>
                     <button class="analyze-btn" onclick="analyzePolicy()">
@@ -423,8 +337,7 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        prompt: input,
-                        use_bedrock: true
+                        prompt: input
                     })
                 });
 
@@ -463,47 +376,12 @@
                 </div>
             `;
 
-            // 政策提案概要
-            if (data.政策提案概要) {
-                html += `
-                    <div class="section">
-                        <div class="section-title">政策提案概要</div>
-                        <div class="section-content">${formatTextWithLineBreaks(data.政策提案概要)}</div>
-                    </div>
-                `;
-            }
-
-            // 主要セクションを表示
-            const sections = [
-                { key: '政策目的と背景', title: '1. 政策目的と背景' },
-                { key: '条例の基本方針', title: '2. 条例の基本方針' },
-                { key: '条文構成', title: '3. 条文構成（見出し案）' },
-                { key: '条文起草案', title: '4. 条文（起草案）' },
-                { key: '補足事項', title: '5. 補足事項（実務・財政・留意点）' }
-            ];
-
-            sections.forEach(section => {
-                const content = data[section.key];
-                if (content) {
-                    html += `
-                        <div class="section">
-                            <div class="section-title">${section.title}</div>
-                            <div class="section-content">
-                                ${formatDocumentContent(content, section.key)}
-                            </div>
-                        </div>
-                    `;
-                }
-            });
-
-            // AI生成の純粋なレスポンスがある場合
+            // AI生成の純粋なレスポンス
             if (data.ai_response) {
                 html += `
                     <div class="section">
                         <div class="section-title">AI分析結果</div>
-                        <div class="section-content">
-                            <pre style="white-space: pre-wrap; font-family: inherit;">${data.ai_response}</pre>
-                        </div>
+                        <div class="section-content">${data.ai_response}</div>
                     </div>
                 `;
             }
@@ -514,9 +392,9 @@
                     <div class="section" style="border-top: 1px solid #ccc; padding-top: 10mm; margin-top: 20mm;">
                         <div class="section-title">生成情報</div>
                         <div class="section-content">
-                            <div><strong>生成日時:</strong> ${new Date(data.timestamp).toLocaleString('ja-JP')}</div><br>
-                            <div><strong>AI エンジン:</strong> ${data.ai_engine || 'Pure Bedrock Claude 3 Haiku'}</div><br>
-                            <div><strong>品質レベル:</strong> ${data.output_quality || '議会提出可能レベル'}</div>
+                            生成日時: ${new Date(data.timestamp).toLocaleString('ja-JP')}
+                            AI エンジン: ${data.ai_engine || 'Bedrock AgentCore'}
+                            品質レベル: ${data.output_quality || '議会提出可能レベル'}
                         </div>
                     </div>
                 `;
@@ -526,97 +404,6 @@
 
             resultsContent.innerHTML = html;
             document.getElementById('resultsSection').style.display = 'block';
-        }
-
-        function formatTextWithLineBreaks(text) {
-            if (typeof text !== 'string') {
-                return text;
-            }
-            // 改行を<br>タグに変換し、空行を段落分けに変換
-            return text
-                .replace(/\n\n/g, '</p><p>')
-                .replace(/\n/g, '<br>')
-                .replace(/^/, '<p>')
-                .replace(/$/, '</p>');
-        }
-
-        function formatDocumentContent(content, sectionKey) {
-            if (typeof content === 'string') {
-                return formatTextWithLineBreaks(content);
-            }
-
-            if (sectionKey === '条文起草案' && content.条文) {
-                // 条文の特別フォーマット
-                let html = `<div><strong>条例名:</strong> ${content.条例名}</div><br>`;
-                html += '<div><strong>条文:</strong></div>';
-                content.条文.forEach(article => {
-                    html += `
-                        <div style="margin: 15px 0; padding: 10px; background: #f8f9fa; border-left: 3px solid #667eea;">
-                            <div style="font-weight: bold; color: #1e3c72;">${article.条項}</div>
-                            <div style="margin-top: 8px;">${article.内容}</div>
-                        </div>
-                    `;
-                });
-                return html;
-            }
-
-            if (Array.isArray(content)) {
-                let html = '<ul>';
-                content.forEach(item => {
-                    html += `<li>${item}</li>`;
-                });
-                html += '</ul>';
-                return html;
-            }
-
-            if (typeof content === 'object') {
-                let html = '';
-                for (const [key, value] of Object.entries(content)) {
-                    if (Array.isArray(value)) {
-                        html += `<div><strong>${key}:</strong></div><ul>`;
-                        value.forEach(item => {
-                            html += `<li>${item}</li>`;
-                        });
-                        html += '</ul><br>';
-                    } else if (typeof value === 'object') {
-                        html += `<div><strong>${key}:</strong></div>`;
-                        html += formatDocumentContent(value, sectionKey);
-                        html += '<br>';
-                    } else {
-                        html += `<div><strong>${key}:</strong> ${value}</div><br>`;
-                    }
-                }
-                return html;
-            }
-
-            return String(content);
-        }
-
-        function formatFrameworkContent(content) {
-            if (typeof content === 'string') {
-                return content;
-            }
-
-            if (typeof content === 'object') {
-                let html = '';
-                for (const [key, value] of Object.entries(content)) {
-                    if (Array.isArray(value)) {
-                        html += `<div><strong>${key}:</strong></div><ul>`;
-                        value.forEach(item => {
-                            html += `<li>${item}</li>`;
-                        });
-                        html += '</ul>';
-                    } else if (typeof value === 'object') {
-                        html += `<div><strong>${key}:</strong></div>`;
-                        html += formatFrameworkContent(value);
-                    } else {
-                        html += `<div><strong>${key}:</strong> ${value}</div>`;
-                    }
-                }
-                return html;
-            }
-
-            return String(content);
         }
 
         function showLoading() {
