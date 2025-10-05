@@ -427,11 +427,9 @@ def calculate_final_score(eval1: str, eval2: str, eval3: str) -> str:
         if average_score >= 70:
             status = "承認"
             needs_improvement = False
-            next_action = "条例案を最終化し、提出プロセスへ進めてください"
         elif average_score >= 50:
             status = "改善ループ"
             needs_improvement = True
-            next_action = "改善提案を反映した改訂案を作成し、再評価を依頼してください"
         else:
             status = "廃案"
             needs_improvement = False
