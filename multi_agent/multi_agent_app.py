@@ -18,17 +18,26 @@ def setup_policy_agent(citizen_opinion: str) -> str:
     )
     
     prompt = f"""
-市民意見「{citizen_opinion}」に基づいて、最適な政策作成エージェントの設定を決定してください。
+市民意見「{citizen_opinion}」を分析し、最適な政策作成エージェントの設定を決定してください。
 
-以下のJSON形式で回答してください：
+要件:
+- 市民意見のテーマに最も適した専門家を設定
+- system_promptには具体的な専門知識と視点を含める
+- 実務経験に基づいた現実的な政策立案ができる設定にする
+
+語彙:
+- role: ["政策立案専門家","教育政策専門家","子育て支援専門家","都市計画専門家","交通政策専門家","環境政策専門家","産業振興専門家","医療福祉専門家","防災減災専門家","デジタル行政専門家"]
+- specialty は自由入力だが、行政用語に近い表現で具体的に。
+- background は100字以内で定性的＋定量的指標に触れること（例: 「自治体計画3本を主導、総額120億円」）
+- system_prompt は**後続の create_policy がそのまま使う**想定で、目的/遵守/出力フォーマット/禁止事項を必ず含める（最大2600字）。
+
+以下のJSON形式のみで回答してください（説明文は不要）：
 {{
-  "role": "具体的な専門家の役割",
-  "specialty": "専門分野",
-  "background": "経歴・背景",
-  "system_prompt": "詳細なシステムプロンプト"
+  "role": "具体的な専門家の役割（例：子育て支援政策専門家）",
+  "specialty": "専門分野（例：保育・教育政策）",
+  "background": "経歴・背景（例：自治体子育て支援課長、保育政策研究者）",
+  "system_prompt": "あなたは{{role}}として、{{specialty}}の専門知識を活かして政策を立案します。実現可能性、予算、法令を考慮した具体的な施策を提案してください。"
 }}
-
-例：子育て支援なら教育政策専門家、交通問題なら都市計画専門家など
 """
     
     result = setup_agent(prompt)
@@ -37,17 +46,33 @@ def setup_policy_agent(citizen_opinion: str) -> str:
     else:
         config_text = result.message
     
+    # JSON抽出（マークダウンコードブロック対応）
+    config_text = config_text.strip()
+    if '```json' in config_text:
+        config_text = config_text.split('```json')[1].split('```')[0].strip()
+    elif '```' in config_text:
+        config_text = config_text.split('```')[1].split('```')[0].strip()
+    
     try:
         policy_agent_config = json.loads(config_text)
-        return f"政策作成エージェント設定完了: {policy_agent_config['role']}"
-    except:
+        return json.dumps({
+            "status": "success",
+            "role": policy_agent_config['role'],
+            "config": policy_agent_config
+        }, ensure_ascii=False)
+    except Exception as e:
         policy_agent_config = {
             "role": "政策立案専門家",
             "specialty": "一般政策",
-            "background": "行政経験",
-            "system_prompt": "政策案を作成してください。"
+            "background": "行政経験10年",
+            "system_prompt": "あなたは行政経験豊富な政策立案専門家として、実現可能で効果的な政策案を作成してください。"
         }
-        return "デフォルト政策作成エージェント設定"
+        return json.dumps({
+            "status": "fallback",
+            "role": policy_agent_config['role'],
+            "error": str(e),
+            "config": policy_agent_config
+        }, ensure_ascii=False)
 
 @tool
 def setup_citizen_agents(citizen_opinion: str) -> str:
