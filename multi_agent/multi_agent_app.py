@@ -7,6 +7,81 @@ app = BedrockAgentCoreApp()
 # グローバル変数でエージェント設定を保持
 policy_agent_config = {}
 citizen_agents_config = {}
+broadlistening_analysis = {}
+
+@tool
+def analyze_broadlistening_results(citizen_opinion: str, broadlistening_data: str) -> str:
+    """ブロードリスニング結果分析エージェント"""
+    global broadlistening_analysis
+    
+    analysis_agent = Agent(
+        model="us.anthropic.claude-sonnet-4-20250514-v1:0"
+    )
+    
+    prompt = f"""
+あなたはブロードリスニング結果分析の専門家です。
+市民意見「{citizen_opinion}」に関連するブロードリスニングデータを分析してください。
+
+ブロードリスニングデータ:
+{broadlistening_data}
+
+以下のJSON形式で分析結果を提供してください：
+{{
+  "main_themes": ["主要テーマ1", "主要テーマ2", "主要テーマ3"],
+  "sentiment_analysis": {{
+    "positive_ratio": 0.0から1.0の数値,
+    "negative_ratio": 0.0から1.0の数値,
+    "neutral_ratio": 0.0から1.0の数値
+  }},
+  "priority_issues": [
+    {{
+      "issue": "具体的な課題",
+      "frequency": "言及頻度",
+      "urgency": "緊急度（高/中/低）",
+      "impact": "影響範囲"
+    }}
+  ],
+  "demographic_insights": {{
+    "target_groups": ["対象層1", "対象層2"],
+    "regional_patterns": "地域的な傾向",
+    "age_group_concerns": "年齢層別の関心事"
+  }},
+  "policy_recommendations": [
+    "政策提案1",
+    "政策提案2",
+    "政策提案3"
+  ],
+  "implementation_considerations": [
+    "実装時の考慮事項1",
+    "実装時の考慮事項2"
+  ]
+}}
+
+分析では以下の点に注目してください：
+1. 市民の声の中で最も頻繁に言及される課題
+2. 感情的な反応（不満、期待、要望）の傾向
+3. 異なる市民層の異なるニーズ
+4. 実現可能性と優先順位
+5. 政策立案への具体的な示唆
+"""
+    
+    result = analysis_agent(prompt)
+    if isinstance(result.message, dict):
+        analysis_text = result.message['content'][0]['text']
+    else:
+        analysis_text = result.message
+    
+    try:
+        broadlistening_analysis = json.loads(analysis_text)
+        return f"ブロードリスニング分析完了: {len(broadlistening_analysis.get('main_themes', []))}つの主要テーマを特定"
+    except:
+        broadlistening_analysis = {
+            "main_themes": ["一般的な課題"],
+            "sentiment_analysis": {"positive_ratio": 0.3, "negative_ratio": 0.5, "neutral_ratio": 0.2},
+            "priority_issues": [{"issue": "基本的な課題", "frequency": "中", "urgency": "中", "impact": "中"}],
+            "policy_recommendations": ["基本的な政策提案"]
+        }
+        return "デフォルトブロードリスニング分析設定"
 
 @tool
 def setup_policy_agent(citizen_opinion: str) -> str:
@@ -168,8 +243,8 @@ def setup_citizen_agents(citizen_opinion: str) -> str:
 
 @tool
 def create_policy(citizen_opinion: str) -> str:
-    """政策作成エージェントによる政策案作成"""
-    global policy_agent_config
+    """政策作成エージェントによる政策案作成（ブロードリスニング分析結果を含む）"""
+    global policy_agent_config, broadlistening_analysis
     
     policy_agent = Agent(
         model="us.anthropic.claude-sonnet-4-20250514-v1:0"
@@ -177,12 +252,32 @@ def create_policy(citizen_opinion: str) -> str:
     
     system_prompt = policy_agent_config.get("system_prompt", "政策案を作成してください。")
     
+    # ブロードリスニング分析結果を整形
+    if broadlistening_analysis:
+        analysis_summary = f"""
+ブロードリスニング分析結果:
+- 主要テーマ: {', '.join(broadlistening_analysis.get('main_themes', []))}
+- 市民感情分析: 肯定的{broadlistening_analysis.get('sentiment_analysis', {}).get('positive_ratio', 0)*100:.1f}%, 否定的{broadlistening_analysis.get('sentiment_analysis', {}).get('negative_ratio', 0)*100:.1f}%
+- 優先課題: {json.dumps(broadlistening_analysis.get('priority_issues', []), ensure_ascii=False, indent=2)}
+- 政策提案: {', '.join(broadlistening_analysis.get('policy_recommendations', []))}
+- 実装考慮事項: {', '.join(broadlistening_analysis.get('implementation_considerations', []))}
+"""
+    else:
+        analysis_summary = "ブロードリスニング分析結果: 利用できません"
+    
     prompt = f"""
 {system_prompt}
 
 市民意見: {citizen_opinion}
 
-実現可能で具体的な政策案を作成してください。
+{analysis_summary}
+
+上記の市民意見とブロードリスニング分析結果を総合的に考慮して、実現可能で具体的な政策案を作成してください。
+特に以下の点を重視してください：
+1. ブロードリスニングで特定された主要テーマへの対応
+2. 市民の感情傾向を考慮した政策設計
+3. 優先課題の解決策
+4. 実装時の考慮事項への配慮
 """
     
     result = policy_agent(prompt)
@@ -486,14 +581,25 @@ def calculate_final_score(eval1: str, eval2: str, eval3: str) -> str:
 
 @tool
 def improve_policy(current_policy: str, improvement_points: str) -> str:
-    """政策改善ツール"""
-    global policy_agent_config
+    """政策改善ツール（ブロードリスニング分析結果を考慮）"""
+    global policy_agent_config, broadlistening_analysis
     
     policy_agent = Agent(
         model="us.anthropic.claude-sonnet-4-20250514-v1:0"
     )
     
     system_prompt = policy_agent_config.get("system_prompt", "政策案を作成してください。")
+    
+    # ブロードリスニング分析結果を整形
+    if broadlistening_analysis:
+        analysis_summary = f"""
+ブロードリスニング分析結果（参考）:
+- 主要テーマ: {', '.join(broadlistening_analysis.get('main_themes', []))}
+- 優先課題: {', '.join([issue.get('issue', '') for issue in broadlistening_analysis.get('priority_issues', [])])}
+- 政策提案: {', '.join(broadlistening_analysis.get('policy_recommendations', []))}
+"""
+    else:
+        analysis_summary = ""
     
     prompt = f"""
 {system_prompt}
@@ -504,7 +610,9 @@ def improve_policy(current_policy: str, improvement_points: str) -> str:
 市民からの改善提案:
 {improvement_points}
 
-上記の改善提案を反映して、より良い政策案を作成してください。
+{analysis_summary}
+
+上記の改善提案を反映し、ブロードリスニング分析結果も考慮して、より良い政策案を作成してください。
 """
     
     result = policy_agent(prompt)
@@ -520,16 +628,38 @@ def invoke(payload):
     if not user_message:
         return {"error": "プロンプトが必要です"}
     
+    # ブロードリスニングデータのサンプル（実際の実装では外部システムから取得）
+    sample_broadlistening_data = json.dumps({
+        "query": f"{user_message} lang:ja",
+        "collection_window": {
+            "from": "2025-09-15T00:00:00Z",
+            "to": "2025-10-02T00:00:00Z",
+            "timezone": "Asia/Tokyo"
+        },
+        "meta": {
+            "language": "ja",
+            "total_collected": 480,
+            "filtered_count": 300
+        },
+        "samples": [
+            "保育園の待機児童がまだ解消されていない。もっと枠を増やしてほしい。",
+            "子育て支援の給付申請が分かりづらい。オンライン申請の手順を簡単にしてほしい。",
+            "学童の定員が足りず、仕事を早退せざるを得ない。放課後の受け皿を増やしてほしい。",
+            "交通費負担が大きい。通学や通園の補助があると助かる。"
+        ]
+    }, ensure_ascii=False)
+    
     # 監督エージェント
     supervisor = Agent(
         model="us.anthropic.claude-sonnet-4-20250514-v1:0",
         tools=[
-            setup_policy_agent,
-            setup_citizen_agents,
-            create_policy,
-            evaluate_policy_citizen1,
-            evaluate_policy_citizen2,
-            evaluate_policy_citizen3,
+            analyze_broadlistening_results,
+            setup_policy_agent, 
+            setup_citizen_agents, 
+            create_policy, 
+            evaluate_policy_citizen1, 
+            evaluate_policy_citizen2, 
+            evaluate_policy_citizen3, 
             calculate_final_score,
             improve_policy
         ]
@@ -538,10 +668,11 @@ def invoke(payload):
     supervisor_prompt = f"""
 市民意見「{user_message}」に対して、以下の手順で政策検討を行ってください：
 
-1. setup_policy_agentツールで政策作成エージェントを設定
-2. setup_citizen_agentsツールで3つの市民エージェントを設定
-3. 最大3回まで繰り返し：
-   a) create_policyツールで政策案を作成（初回は市民意見、再検討時は改善点を反映）
+1. analyze_broadlistening_resultsツールでブロードリスニング結果を分析（引数: citizen_opinion="{user_message}", broadlistening_data="{sample_broadlistening_data}"）
+2. setup_policy_agentツールで政策作成エージェントを設定
+3. setup_citizen_agentsツールで3つの市民エージェントを設定
+4. 最大3回まで繰り返し：
+   a) create_policyツールで政策案を作成（市民意見とブロードリスニング分析結果を考慮）
    b) evaluate_policy_citizen1, evaluate_policy_citizen2, evaluate_policy_citizen3ツールで各市民エージェントの評価を取得
    c) calculate_final_scoreツールで最終スコアを計算
    d) 70点以上なら承認で終了、未満ならimprove_policyツールで改善して次のループへ
@@ -551,7 +682,7 @@ def invoke(payload):
 - 50-69点: 改善ループ（最大3回まで）
 - 50点未満: 廃案
 
-最終的に結果をまとめて報告してください。
+最終的に結果をまとめて報告してください。ブロードリスニング分析結果がどのように政策に反映されたかも含めてください。
 """
     
     result = supervisor(supervisor_prompt)
