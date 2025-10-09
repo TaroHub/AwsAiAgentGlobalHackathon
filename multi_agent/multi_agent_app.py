@@ -93,17 +93,26 @@ def setup_policy_agent(citizen_opinion: str) -> str:
     )
     
     prompt = f"""
-市民意見「{citizen_opinion}」に基づいて、最適な政策作成エージェントの設定を決定してください。
+市民意見「{citizen_opinion}」を分析し、最適な政策作成エージェントの設定を決定してください。
 
-以下のJSON形式で回答してください：
+要件:
+- 市民意見のテーマに最も適した専門家を設定
+- system_promptには具体的な専門知識と視点を含める
+- 実務経験に基づいた現実的な政策立案ができる設定にする
+
+語彙:
+- role: ["政策立案専門家","教育政策専門家","子育て支援専門家","都市計画専門家","交通政策専門家","環境政策専門家","産業振興専門家","医療福祉専門家","防災減災専門家","デジタル行政専門家"]
+- specialty は自由入力だが、行政用語に近い表現で具体的に。
+- background は100字以内で定性的＋定量的指標に触れること（例: 「自治体計画3本を主導、総額120億円」）
+- system_prompt は**後続の create_policy がそのまま使う**想定で、目的/遵守/出力フォーマット/禁止事項を必ず含める（最大1000字）。
+
+以下のJSON形式のみで回答してください（説明文は不要）：
 {{
-  "role": "具体的な専門家の役割",
-  "specialty": "専門分野",
-  "background": "経歴・背景",
-  "system_prompt": "詳細なシステムプロンプト"
+  "role": "具体的な専門家の役割（例：子育て支援政策専門家）",
+  "specialty": "専門分野（例：保育・教育政策）",
+  "background": "経歴・背景（例：自治体子育て支援課長、保育政策研究者）",
+  "system_prompt": "あなたは{{role}}として、{{specialty}}の専門知識を活かして政策を立案します。実現可能性、予算、法令を考慮した具体的な施策を提案してください。"
 }}
-
-例：子育て支援なら教育政策専門家、交通問題なら都市計画専門家など
 """
     
     result = setup_agent(prompt)
@@ -112,17 +121,33 @@ def setup_policy_agent(citizen_opinion: str) -> str:
     else:
         config_text = result.message
     
+    # JSON抽出（マークダウンコードブロック対応）
+    config_text = config_text.strip()
+    if '```json' in config_text:
+        config_text = config_text.split('```json')[1].split('```')[0].strip()
+    elif '```' in config_text:
+        config_text = config_text.split('```')[1].split('```')[0].strip()
+    
     try:
         policy_agent_config = json.loads(config_text)
-        return f"政策作成エージェント設定完了: {policy_agent_config['role']}"
-    except:
+        return json.dumps({
+            "status": "success",
+            "role": policy_agent_config['role'],
+            "config": policy_agent_config
+        }, ensure_ascii=False)
+    except Exception as e:
         policy_agent_config = {
             "role": "政策立案専門家",
             "specialty": "一般政策",
-            "background": "行政経験",
-            "system_prompt": "政策案を作成してください。"
+            "background": "行政経験10年",
+            "system_prompt": "あなたは行政経験豊富な政策立案専門家として、実現可能で効果的な政策案を作成してください。"
         }
-        return "デフォルト政策作成エージェント設定"
+        return json.dumps({
+            "status": "fallback",
+            "role": policy_agent_config['role'],
+            "error": str(e),
+            "config": policy_agent_config
+        }, ensure_ascii=False)
 
 @tool
 def setup_citizen_agents(citizen_opinion: str) -> str:
@@ -268,17 +293,46 @@ def create_policy(citizen_opinion: str) -> str:
     prompt = f"""
 {system_prompt}
 
-市民意見: {citizen_opinion}
+共通要件:
+- 市民ニーズの分析、対象範囲、根拠法令、既存施策との整合性を明示する。
+- 施策の目的・背景・課題設定・到達目標を具体的なデータや想定指標とともに記載する。
+- 予算規模、財源内訳、コスト削減策、費用対効果指標を定量的に整理する。
+- リスクと緩和策、利害関係者調整、周知・広報計画、評価・改善サイクルを記述する。
+- 最後に市民向け要約を300字以内で提供する。
 
-{analysis_summary}
+市民意見:
+{citizen_opinion}
 
-上記の市民意見とブロードリスニング分析結果を総合的に考慮して、実現可能で具体的な政策案を作成してください。
-特に以下の点を重視してください：
-1. ブロードリスニングで特定された主要テーマへの対応
-2. 市民の感情傾向を考慮した政策設計
-3. 優先課題の解決策
-4. 実装時の考慮事項への配慮
-"""
+出力テンプレート:
+【政策サマリー】
+- 3〜5行で目的・対象・期待効果を要約。
+
+【施策案】
+1. 政策・施策名
+2. 背景と目的の概要
+3. 主要施策内容（法令整備・予算措置・実証事業・広報施策などを含めて構成）
+4. 関連法令・既存施策との整合性
+5. 成果指標・評価・改善サイクル
+
+【提案理由書】
+- 背景と課題認識
+- 市民ニーズ・根拠データ
+- 施策の意義と想定効果
+- 他施策・法令との整合性
+
+【財政影響調書】
+- 試算額（初年度・中期・長期）
+- 財源確保策／国・都道府県補助金見込み
+- コスト削減・効率化のポイント
+- 費用対効果の観点
+
+【リスク・対応策／利害関係者】
+- 主なリスクと緩和策
+- 利害関係者マッピングと調整方針
+
+【市民向け要約】
+- 300字以内で、施策のポイントと期待される暮らしの変化を説明。
+
     
     result = policy_agent(prompt)
     if isinstance(result.message, dict):
