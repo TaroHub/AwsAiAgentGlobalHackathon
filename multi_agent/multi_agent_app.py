@@ -332,6 +332,7 @@ def create_policy(citizen_opinion: str) -> str:
 
 【市民向け要約】
 - 300字以内で、施策のポイントと期待される暮らしの変化を説明。
+"""
 
     
     result = policy_agent(prompt)
