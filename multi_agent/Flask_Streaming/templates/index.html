@@ -73,6 +73,14 @@
                     <h2>📡 処理状況</h2>
                     <div id="statusText" style="color: #3498db; font-weight: bold;"></div>
                 </div>
+                <div class="section" id="researchSection" style="display: none;">
+                    <h2>🔍 類似政策調査</h2>
+                    <div id="researchContent"></div>
+                </div>
+                <div class="section" id="demographicsSection" style="display: none;">
+                    <h2>📊 人口動態調査</h2>
+                    <div id="demographicsContent"></div>
+                </div>
                 <div class="section" id="agentsSection" style="display: none;">
                     <h2>📋 生成されたエージェント</h2>
                     <h3 style="margin: 15px 0 10px 0;">政策立案エージェント</h3>
@@ -83,6 +91,10 @@
                 <div class="section" id="policySection" style="display: none;">
                     <h2>📜 政策案</h2>
                     <div id="policyContent"></div>
+                </div>
+                <div class="section" id="reviewSection" style="display: none;">
+                    <h2>✅ レビュー結果</h2>
+                    <div id="reviewContent"></div>
                 </div>
                 <div class="section" id="evaluationsSection" style="display: none;">
                     <h2>👥 市民評価</h2>
@@ -131,6 +143,12 @@
                 case 'status':
                     document.getElementById('statusText').textContent = event.data;
                     break;
+                case 'research':
+                    displayResearch(event.data);
+                    break;
+                case 'demographics':
+                    displayDemographics(event.data);
+                    break;
                 case 'agent_defs':
                     streamData.agentDefs = event.data;
                     displayAgents(event.data);
@@ -138,6 +156,10 @@
                 case 'policy':
                     streamData.policy = event.data;
                     displayPolicy(event.data);
+                    break;
+                case 'review':
+                case 'review_final':
+                    displayReview(event.data);
                     break;
                 case 'evaluation':
                     streamData.evaluations.push(event.data);
@@ -150,6 +172,64 @@
                     document.getElementById('statusText').innerHTML = `<span style="color: #e74c3c;">❌ エラー: ${event.data}</span>`;
                     break;
             }
+        }
+
+        function displayResearch(research) {
+            const section = document.getElementById('researchSection');
+            section.style.display = 'block';
+            
+            const content = document.getElementById('researchContent');
+            if (research.similar_policies && research.similar_policies.length > 0) {
+                content.innerHTML = research.similar_policies.map(policy => `
+                    <div class="agent-card">
+                        <div class="agent-name">${policy.municipality} - ${policy.policy_name}</div>
+                        <div class="agent-profile"><strong>概要:</strong> ${policy.summary}</div>
+                        <div class="agent-profile"><strong>成果:</strong> ${policy.results}</div>
+                    </div>
+                `).join('');
+            } else {
+                content.innerHTML = '<p style="color: #7f8c8d;">類似政策は見つかりませんでした</p>';
+            }
+        }
+
+        function displayDemographics(demographics) {
+            const section = document.getElementById('demographicsSection');
+            section.style.display = 'block';
+            
+            const content = document.getElementById('demographicsContent');
+            const ageDistribution = demographics.age_distribution || {};
+            const genderRatio = demographics.gender_ratio || {};
+            const familyTypes = demographics.family_types || [];
+            
+            content.innerHTML = `
+                <div class="agent-card">
+                    <div class="agent-name">対象地域: ${demographics.target_area || '不明'}</div>
+                    <div class="agent-profile"><strong>年齢分布:</strong> ${Object.entries(ageDistribution).map(([k,v]) => `${k}: ${v}%`).join(', ')}</div>
+                    <div class="agent-profile"><strong>性別比率:</strong> 男性 ${genderRatio.male || 0}%, 女性 ${genderRatio.female || 0}%</div>
+                    <div class="agent-profile"><strong>家族構成:</strong> ${familyTypes.map(f => `${f.type} ${f.percentage}%`).join(', ')}</div>
+                    ${demographics.data_source ? `<div class="agent-profile"><strong>データソース:</strong> ${demographics.data_source}</div>` : ''}
+                </div>
+            `;
+        }
+
+        function displayReview(review) {
+            const section = document.getElementById('reviewSection');
+            section.style.display = 'block';
+            
+            const content = document.getElementById('reviewContent');
+            const approved = review.approved ? '✅ 承認' : '❌ 不承認';
+            const approvedColor = review.approved ? '#27ae60' : '#e74c3c';
+            const attemptText = review.attempt ? ` (試行 ${review.attempt}/3)` : '';
+            
+            content.innerHTML = `
+                <div class="agent-card">
+                    <div style="font-size: 18px; font-weight: bold; color: ${approvedColor}; margin-bottom: 10px;">${approved}${attemptText}</div>
+                    ${review.legal_compliance ? `<div class="agent-profile"><strong>法律適合性:</strong> ${review.legal_compliance.score}/5 - ${review.legal_compliance.issues?.join(', ') || '問題なし'}</div>` : ''}
+                    ${review.feasibility ? `<div class="agent-profile"><strong>実現可能性:</strong> ${review.feasibility.score}/5 - ${review.feasibility.issues?.join(', ') || '問題なし'}</div>` : ''}
+                    ${review.overall_assessment ? `<div class="agent-profile"><strong>総合評価:</strong> ${review.overall_assessment}</div>` : ''}
+                    ${review.improvement_suggestions ? `<div class="agent-profile"><strong>改善提案:</strong> ${review.improvement_suggestions}</div>` : ''}
+                </div>
+            `;
         }
 
         function displayAgents(agentDefs) {
@@ -184,10 +264,12 @@
             section.style.display = 'block';
             
             const content = document.getElementById('policyContent');
+            const improvedBadge = policy.improved ? `<span style="background: #f39c12; color: white; padding: 3px 10px; border-radius: 5px; font-size: 12px; margin-left: 10px;">改善版 (試行${policy.attempt})</span>` : '';
             content.innerHTML = `
-                <div class="policy-title">${policy.policy_title || 'N/A'}</div>
+                <div class="policy-title">${policy.policy_title || 'N/A'}${improvedBadge}</div>
                 <div class="policy-content"><strong>概要:</strong><br>${policy.summary || 'N/A'}</div><br>
                 <div class="policy-content"><strong>推奨政策:</strong><br>${policy.recommended_policy || 'N/A'}</div>
+                ${policy.referenced_policies && policy.referenced_policies.length > 0 ? `<br><div class="policy-content"><strong>参考事例:</strong> ${policy.referenced_policies.join(', ')}</div>` : ''}
             `;
         }
 

@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify, Response
 import asyncio
 import json
-from multi_agent_app import invoke_async_streaming
+from multi_agent_app_enhanced import invoke_async_streaming
 
 app = Flask(__name__)
 
