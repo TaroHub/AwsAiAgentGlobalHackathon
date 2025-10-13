@@ -9,6 +9,72 @@ policy_agent_config = {}
 citizen_agents_config = {}
 broadlistening_analysis = {}
 
+@tool 
+def generate_broadlistening_collection_mock(citizen_opinion: str) -> str:
+    """ブロードリスニングのデータ収集のモック作成（SNS検索キーワードと架空投稿を生成し、ブロードリスニング用JSONを返す）"""
+    mock_agent = Agent(model="us.anthropic.claude-sonnet-4-20250514-v1:0")
+
+    # 生成AIへのプロンプト
+    # - 出力は純粋なJSON文字列のみ
+    # - キーは query, collection_window, meta, samples のみ
+    prompt = f"""
+あなたはSNSリサーチャーです。以下の市民意見に関連するSNS検索キーワードを5〜8個作成し、
+それらのキーワードで収集した仮定の架空SNS投稿を20件程度生成してください。
+
+厳守事項（重要）:
+- 出力は先頭から末尾まで「純粋なJSON文字列」のみ。説明文・前置き・後置き・コードブロック（```）は禁止。
+- JSONのキーは query, collection_window, meta, samples のみ。
+- samplesは20件程度の文字列配列。重複禁止。誹謗中傷やPII（氏名/住所/電話/メール/位置情報）禁止。
+
+入力の市民意見:
+{citizen_opinion}
+
+キーワード例:
+- 大阪 子育て支援 相談窓口
+- 大阪 住宅価格 上昇
+- 保育園 送迎 負担
+- オンライン申請 手順 つまずき
+
+投稿例:
+- 「大阪で子育て中。保育園の送迎時間が合わず毎朝バタバタ。柔軟な時間設定があると助かる。#子育て #保育園」
+- 「住宅価格が上がり続けていてファミリー向けの間取りがつらい。家賃補助や中古リフォーム支援があると嬉しい。」
+- 「学童の定員がいっぱいで申し込みが難航。共働きには厳しい…枠の拡大や民間連携に期待。」
+- 「オンライン申請、途中保存ができないのがつらい。スマホでも申請しやすいUIに改善希望。」
+- 「駅近は通園に便利だけど価格が高い。郊外の交通支援が充実すれば選択肢が広がりそう。」
+
+出力フォーマット（この形のJSONをそのまま返す）:
+{{
+  "query": "主要キーワード1 OR 主要キーワード2 OR ... lang:ja",
+  "collection_window": {{
+    "from": "YYYY-MM-DDTHH:MM:SSZ"（from to が直近1ヶ月の期間になるように）,
+    "to": "YYYY-MM-DDTHH:MM:SSZ",
+    "timezone": "Asia/Tokyo"
+  }},
+  "meta": {{
+    "language": "ja",
+    "total_collected": 20〜100の範囲の整数,
+    "filtered_count": 20〜40の範囲の整数（samplesの件数と等しい）
+  }},
+  "samples": [
+    "投稿1（140〜240字目安、具体的な体験や意見、絵文字やハッシュタグを適度に）",
+    "投稿2",
+    "...（20件程度）"
+  ]
+}}
+"""
+    # モデル呼び出し
+    result = mock_agent(prompt)
+    text = result.message['content'][0]['text'] if isinstance(result.message, dict) else result.message
+    text = text.strip()
+
+    # 純JSONで返ってくる前提。パースできたらJSON文字列として返す（構造は維持）
+    try:
+        data = json.loads(text)
+        return json.dumps(data, ensure_ascii=False)
+    except Exception as e:
+        # 例外処理
+        raise ValueError(f"generate_broadlistening_collection_mock returned non-JSON output: {str(e)}")
+
 @tool
 def analyze_broadlistening_results(citizen_opinion: str, broadlistening_data: str) -> str:
     """ブロードリスニング結果分析エージェント"""
@@ -24,6 +90,8 @@ def analyze_broadlistening_results(citizen_opinion: str, broadlistening_data: st
 
 ブロードリスニングデータ:
 {broadlistening_data}
+
+取得したブロードリスニングデータを分析する過程をコードも踏まえて示してください。
 
 以下のJSON形式で分析結果を提供してください：
 {{
@@ -708,6 +776,7 @@ def invoke(payload):
     supervisor = Agent(
         model="us.anthropic.claude-sonnet-4-20250514-v1:0",
         tools=[
+            generate_broadlistening_collection_mock,
             analyze_broadlistening_results,
             setup_policy_agent, 
             setup_citizen_agents, 
@@ -723,10 +792,11 @@ def invoke(payload):
     supervisor_prompt = f"""
 市民意見「{user_message}」に対して、以下の手順で政策検討を行ってください：
 
-1. analyze_broadlistening_resultsツールでブロードリスニング結果を分析（引数: citizen_opinion="{user_message}", broadlistening_data="{sample_broadlistening_data}"）
-2. setup_policy_agentツールで政策作成エージェントを設定
-3. setup_citizen_agentsツールで3つの市民エージェントを設定
-4. 最大3回まで繰り返し：
+1. generate_broadlistening_collection_mock ツールでブロードリスニング用の疑似SNSデータを生成（引数: citizen_opinion="{user_message}"）
+2. 1の結果JSON文字列を broadlistening_data として analyze_broadlistening_resultsツールでブロードリスニング結果を分析（引数: citizen_opinion="{user_message}", broadlistening_data=**ステップ1で得たbl_dataをそのまま**）
+3. setup_policy_agentツールで政策作成エージェントを設定
+4. setup_citizen_agentsツールで3つの市民エージェントを設定
+5. 最大3回まで繰り返し：
    a) create_policyツールで政策案を作成（市民意見とブロードリスニング分析結果を考慮）
    b) evaluate_policy_citizen1, evaluate_policy_citizen2, evaluate_policy_citizen3ツールで各市民エージェントの評価を取得
    c) calculate_final_scoreツールで最終スコアを計算
