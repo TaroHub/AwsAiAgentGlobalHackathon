@@ -160,13 +160,15 @@ async def invoke_async_streaming(payload):
     {"name": "エージェント名", "expertise": "専門分野", "system_prompt": "詳細なプロンプト"}
   ],
   "citizen_agents": [
-    {"name": "名前", "age": 年齢, "gender": "性別", "family": "家族構成", "profile": "詳細プロフィール", "system_prompt": "評価用プロンプト"}
+    {"name": "名前", "age": 年齢, "gender": "性別", "family": "家族構成", "profile": "詳細プロフィール", "is_directly_affected": true/false, "system_prompt": "評価用プロンプト"}
   ],
   "reviewer_agent": {
     "name": "レビュアー名", "expertise": "専門分野", "system_prompt": "レビュー用プロンプト"
   }
 }
-```"""
+```
+
+注意: is_directly_affected は政策の直接的な恩恵を受けるかどうかを示します（true=恩恵を受ける、false=恩恵を受けない/関係ない層）"""
         )
         
         sv_response = ""
@@ -181,6 +183,10 @@ async def invoke_async_streaming(payload):
         if not agent_defs or len(agent_defs.get("citizen_agents", [])) < 10:
             yield {"type": "error", "data": "エージェント定義の生成に失敗しました（市民エージェントが10名未満）"}
             return
+        
+        # is_directly_affectedフィールドの確認と警告
+        unaffected_count = sum(1 for a in agent_defs.get("citizen_agents", []) if a.get("is_directly_affected") == False)
+        yield {"type": "status", "data": f"[ステップ1b] 生成完了: 市民エージェント{len(agent_defs.get('citizen_agents', []))}名（うち政策対象外{unaffected_count}名）"}
         
         yield {"type": "agent_defs", "data": agent_defs}
         
@@ -360,10 +366,11 @@ async def invoke_async_streaming(payload):
                 
                 evaluation = extract_json(eval_response)
                 if evaluation:
+                    evaluation["is_directly_affected"] = agent_def.get("is_directly_affected", True)
                     citizen_evaluations.append(evaluation)
                     yield {"type": "evaluation", "data": evaluation}
             except Exception as e:
-                citizen_evaluations.append({"evaluator_name": agent_def['name'], "error": str(e)})
+                citizen_evaluations.append({"evaluator_name": agent_def['name'], "error": str(e), "is_directly_affected": agent_def.get("is_directly_affected", True)})
         
         # ステップ5: 10年後評価（一時的政策でない場合）
         future_evaluations = []
@@ -421,7 +428,7 @@ async def invoke_async_streaming(payload):
             "demographics_data": demographics_data,
             "generated_agents": {
                 "policy_agents": [{"name": a["name"], "expertise": a["expertise"]} for a in agent_defs["policy_agents"]],
-                "citizen_agents": [{"name": a["name"], "age": a["age"], "profile": a["profile"]} for a in agent_defs["citizen_agents"]],
+                "citizen_agents": [{"name": a["name"], "age": a["age"], "profile": a["profile"], "is_directly_affected": a.get("is_directly_affected", True)} for a in agent_defs["citizen_agents"]],
                 "reviewer": agent_defs.get("reviewer_agent", {}).get("name", "レビュアー")
             },
             "policy_proposal": policy_json,

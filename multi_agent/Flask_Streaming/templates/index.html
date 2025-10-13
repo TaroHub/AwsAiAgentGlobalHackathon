@@ -21,6 +21,7 @@
         .section { background: #f8f9fa; padding: 20px; margin-bottom: 20px; border-radius: 5px; border-left: 4px solid #3498db; }
         .section h2 { color: #2c3e50; margin-bottom: 15px; font-size: 20px; }
         .agent-card { background: white; padding: 15px; margin: 10px 0; border-radius: 5px; border: 1px solid #e0e0e0; }
+        .badge-unaffected { background: #95a5a6; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px; }
         .agent-name { font-weight: bold; color: #2c3e50; margin-bottom: 5px; }
         .agent-profile { color: #7f8c8d; font-size: 14px; }
         .policy-title { font-size: 24px; font-weight: bold; color: #2c3e50; margin-bottom: 15px; }
@@ -250,9 +251,11 @@
             const citizenAgentsDiv = document.getElementById('citizenAgents');
             citizenAgentsDiv.innerHTML = '';
             agentDefs.citizen_agents.forEach(agent => {
+                const affectedBadge = agent.is_directly_affected === false ? 
+                    '<span style="background: #95a5a6; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px;">政策対象外</span>' : '';
                 citizenAgentsDiv.innerHTML += `
                     <div class="agent-card">
-                        <div class="agent-name">${agent.name} (${agent.age}歳)</div>
+                        <div class="agent-name">${agent.name} (${agent.age}歳)${affectedBadge}</div>
                         <div class="agent-profile">${agent.profile}</div>
                     </div>
                 `;
@@ -278,17 +281,20 @@
             section.style.display = 'block';
             
             const content = document.getElementById('evaluationsContent');
+            const affectedBadge = evaluation.is_directly_affected === false ? 
+                '<span style="background: #95a5a6; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px;">政策対象外</span>' : '';
+            
             if (evaluation.error) {
                 content.innerHTML += `
                     <div class="evaluation-card">
-                        <div class="agent-name">${evaluation.evaluator_name}</div>
+                        <div class="agent-name">${evaluation.evaluator_name}${affectedBadge}</div>
                         <div style="color: #e74c3c;">エラー: ${evaluation.error}</div>
                     </div>
                 `;
             } else {
                 content.innerHTML += `
                     <div class="evaluation-card">
-                        <div class="agent-name">${evaluation.evaluator_name}</div>
+                        <div class="agent-name">${evaluation.evaluator_name}${affectedBadge}</div>
                         <div style="margin: 10px 0;">総合評価: <span class="rating">${evaluation.overall_rating}/5</span></div>
                         <div style="margin: 10px 0;"><strong>期待:</strong> ${evaluation.expectations || 'N/A'}</div>
                         <div style="margin: 10px 0;"><strong>懸念:</strong> ${evaluation.concerns || 'N/A'}</div>
