@@ -1,0 +1,4 @@
+flask
+bedrock-agentcore
+strands-agents
+strands-agents-tools
