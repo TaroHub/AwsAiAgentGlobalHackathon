@@ -86,6 +86,12 @@ async def invoke_async_streaming(payload):
 2. 市民意見で特定の地域が明示されている場合はその地域
 3. 大阪市のデータが不明な場合は他の政令指定都市や日本全体の統計
 
+重要: データが存在しない場合は、フェルミ推定を使用してください。
+- 類似都市のデータから類推
+- 日本全体の統計から地域特性を考慮して補正
+- 人口規模、産業構造、地理的特性から推定
+- 推定方法を必ずdata_sourceに明記すること
+
 出力形式:
 ```json
 {
@@ -112,7 +118,7 @@ async def invoke_async_streaming(payload):
         )
         
         demographics_response = ""
-        async for event in demographics_agent.stream_async(f"市民意見: {user_message}\n\nまず大阪市の人口動態を調査してください。大阪市のデータが不明な場合は他の市区町村や日本全体の統計を使用してください。"):
+        async for event in demographics_agent.stream_async(f"市民意見: {user_message}\n\nまず大阪市の人口動態を調査してください。大阪市のデータが不明な場合は他の市区町村や日本全体の統計を使用してください。\n\nデータが存在しない場合は、フェルミ推定で合理的な推定値を算出してください。推定方法をdata_sourceに明記してください。"):
             if "data" in event:
                 chunk = event["data"]
                 yield {"type": "stream", "step": "demographics", "data": chunk}
@@ -335,24 +341,17 @@ async def invoke_async_streaming(payload):
 あなたの立場: {agent_def['profile']}
 年齢: {agent_def['age']}歳、性別: {agent_def.get('gender', '不明')}、家族: {agent_def.get('family', '不明')}
 
-上記の政策案を詳細に評価してください。
+上記の政策案を、あなた自身の生活や立場から評価してください。
 
 出力形式:
 ```json
 {{
   "evaluator_name": "{agent_def['name']}",
   "overall_rating": 3,
-  "detailed_evaluation": {{
-    "personal_impact": {{"score": 3, "reason": "自分への影響"}},
-    "family_impact": {{"score": 3, "reason": "家族への影響"}},
-    "community_impact": {{"score": 3, "reason": "地域への影響"}},
-    "fairness": {{"score": 3, "reason": "公平性"}},
-    "sustainability": {{"score": 3, "reason": "持続可能性"}}
-  }},
+  "personal_impact": "この政策が自分の生活にどう影響するか（具体的に200文字程度）",
   "expectations": "期待すること（具体的に200文字程度）",
   "concerns": "懸念すること（具体的に200文字程度）",
-  "recommendations": "提言（具体的に200文字程度）",
-  "personal_story": "この政策が自分の生活にどう影響するか（具体的なエピソード）"
+  "recommendations": "提言（具体的に200文字程度）"
 }}
 ```"""
             
@@ -377,8 +376,9 @@ async def invoke_async_streaming(payload):
         if not policy_json.get("is_temporary", False):
             yield {"type": "status", "data": "[ステップ5] 10年後の評価をシミュレーション中..."}
             
-            for i, agent_def in enumerate(agent_defs["citizen_agents"][:5]):  # 代表5名
-                yield {"type": "status", "data": f"10年後評価 {i+1}/5: {agent_def['name']}"}
+            total_citizens = len(agent_defs["citizen_agents"])
+            for i, agent_def in enumerate(agent_defs["citizen_agents"]):
+                yield {"type": "status", "data": f"10年後評価 {i+1}/{total_citizens}: {agent_def['name']}"}
                 
                 citizen_agent = Agent(
                     model="us.anthropic.claude-sonnet-4-20250514-v1:0",
@@ -421,6 +421,92 @@ async def invoke_async_streaming(payload):
                 except Exception as e:
                     pass
         
+        # ステップ6: 最終評価
+        yield {"type": "status", "data": "[ステップ6] 最終評価を算出中..."}
+        
+        # 効果・成果スコア（市民評価の平均）
+        citizen_ratings = [e.get("overall_rating", 0) for e in citizen_evaluations if "overall_rating" in e]
+        effectiveness_score = (sum(citizen_ratings) / len(citizen_ratings) * 20) if citizen_ratings else 50
+        
+        final_evaluator = Agent(
+            model="us.anthropic.claude-sonnet-4-20250514-v1:0",
+            callback_handler=None,
+            system_prompt="""あなたは政策評価の専門家です。
+以下の5つの観点から政策を評価してください。
+
+1. 公平性（Equity）- 重み25%
+2. 効果・成果（Effectiveness）- 重み25% （市民評価を反映）
+3. 透明性・説明責任（Transparency）- 重み20%
+4. 持続可能性・コスト効率（Sustainability）- 重み15%
+5. 社会的受容性・倫理性（Ethical Acceptability）- 重み10%
+
+出力形式:
+```json
+{{
+  "equity": {{"score": 75, "comment": "評価コメント"}},
+  "effectiveness": {{"score": 80, "comment": "評価コメント"}},
+  "transparency": {{"score": 70, "comment": "評価コメント"}},
+  "sustainability": {{"score": 65, "comment": "評価コメント"}},
+  "ethical_acceptability": {{"score": 85, "comment": "評価コメント"}},
+  "total_score": 75.5,
+  "overall_comment": "総合評価コメント",
+  "recommendation": "推奨/条件付き推奨/再検討推奨"
+}}
+```"""
+        )
+        
+        final_prompt = f"""政策案:
+{json.dumps(policy_json, ensure_ascii=False, indent=2)}
+
+市民評価数: {len(citizen_evaluations)}名
+市民評価データ:
+{json.dumps(citizen_evaluations, ensure_ascii=False, indent=2)}
+
+以下の5つの観点で政策を評価してください：
+
+1. 公平性（Equity）- 重み25%
+   - 施策が特定層に偏らず、公平に恩恵が行き渡るか
+   - 政策対象外の市民の意見も考慮
+   - 支援対象分布の偏り、格差是正度を評価
+
+2. 効果・成果（Effectiveness）- 重み25%
+   - 市民平均評価: {sum(citizen_ratings)/len(citizen_ratings):.2f}/5 ({effectiveness_score:.1f}/100)
+   - このスコアをそのまま使用: {effectiveness_score:.1f}点
+   - 市民満足度を直接反映
+
+3. 透明性・説明責任（Transparency）- 重み20%
+   - 意思決定の根拠や過程が明示されているか
+   - 市民の"concerns"や"recommendations"から説明不足の指摘を分析
+   - 根拠データ数、説明可能性を評価
+
+4. 持続可能性・コスト効率（Sustainability）- 重み15%
+   - 財政的・人的リソース観点から継続可能か
+   - 市民の"concerns"から財政負担への懸念を分析
+   - コスト対効果比、長期的影響度を評価
+
+5. 社会的受容性・倫理性（Ethical Acceptability）- 重み10%
+   - 人権・プライバシー・倫理的観点から適切か
+   - 市民の"concerns"から倫理的懸念を分析
+   - AIによる施策立案における倫理リスクを評価
+
+総合スコア = 公平性×0.25 + 効果・成果×0.25 + 透明性×0.20 + 持続可能性×0.15 + 倫理性×0.10
+
+推奨判定基準:
+- 70点以上: 推奨
+- 50-69点: 条件付き推奨
+- 50点未満: 再検討推奨
+"""
+        
+        final_response = ""
+        async for event in final_evaluator.stream_async(final_prompt):
+            if "data" in event:
+                chunk = event["data"]
+                yield {"type": "stream", "step": "final_assessment", "data": chunk}
+                final_response += chunk
+        
+        final_assessment = extract_json(final_response) or {"total_score": 0}
+        yield {"type": "final_assessment", "data": final_assessment}
+        
         result_json = {
             "status": "success",
             "user_message": user_message,
@@ -435,6 +521,7 @@ async def invoke_async_streaming(payload):
             "review_result": review_result,
             "citizen_evaluations": citizen_evaluations,
             "future_evaluations": future_evaluations,
+            "final_assessment": final_assessment,
             "execution_status": {
                 "completed": True,
                 "policy_agents_count": len(agent_defs["policy_agents"]),

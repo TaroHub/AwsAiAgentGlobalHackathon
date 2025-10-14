@@ -15,6 +15,8 @@ def evaluate():
         data = request.json
         prompt = data.get('prompt', '')
         
+        print(f"[DEBUG] Received prompt: {prompt}")
+        
         if not prompt:
             return jsonify({'error': 'プロンプトが必要です'}), 400
         
@@ -38,11 +40,17 @@ def evaluate():
                     except StopAsyncIteration:
                         break
                     except Exception as e:
-                        error_chunk = {"type": "error", "data": str(e)}
+                        import traceback
+                        error_detail = f"{str(e)}\n{traceback.format_exc()}"
+                        print(f"[ERROR] Stream error: {error_detail}")
+                        error_chunk = {"type": "error", "data": str(e), "detail": error_detail}
                         yield f"data: {json.dumps(error_chunk, ensure_ascii=False)}\n\n"
                         break
             except Exception as e:
-                error_chunk = {"type": "error", "data": str(e)}
+                import traceback
+                error_detail = f"{str(e)}\n{traceback.format_exc()}"
+                print(f"[ERROR] Generate error: {error_detail}")
+                error_chunk = {"type": "error", "data": str(e), "detail": error_detail}
                 yield f"data: {json.dumps(error_chunk, ensure_ascii=False)}\n\n"
             finally:
                 loop.close()
@@ -50,7 +58,10 @@ def evaluate():
         return Response(generate(), mimetype='text/event-stream')
     
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        error_detail = traceback.format_exc()
+        print(f"[ERROR] Evaluate endpoint error: {error_detail}")
+        return jsonify({'error': str(e), 'detail': error_detail}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

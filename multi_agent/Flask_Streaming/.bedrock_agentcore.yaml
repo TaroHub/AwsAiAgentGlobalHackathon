@@ -21,7 +21,7 @@ agents:
     bedrock_agentcore:
       agent_id: multi_agent_app-grDIat649D
       agent_arn: arn:aws:bedrock-agentcore:us-west-2:047786098634:runtime/multi_agent_app-grDIat649D
-      agent_session_id: 7cb58654-75b2-4bca-bbb9-2d1317bce15a
+      agent_session_id: 1bded22c-898f-4c6e-a488-f0e11490e30a
     codebuild:
       project_name: bedrock-agentcore-multi_agent_app-builder
       execution_role: arn:aws:iam::047786098634:role/AmazonBedrockAgentCoreSDKCodeBuild-us-west-2-8e6aba1f5a

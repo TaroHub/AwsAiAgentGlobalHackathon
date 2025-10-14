@@ -28,6 +28,8 @@
         .policy-content { line-height: 1.8; color: #34495e; }
         .evaluation-card { background: white; padding: 20px; margin: 15px 0; border-radius: 5px; border: 1px solid #e0e0e0; }
         .rating { display: inline-block; background: #3498db; color: white; padding: 5px 15px; border-radius: 20px; font-weight: bold; }
+        .score-bar { background: #e0e0e0; height: 20px; border-radius: 10px; overflow: hidden; margin: 5px 0; }
+        .score-fill { background: linear-gradient(90deg, #e74c3c 0%, #f39c12 50%, #27ae60 100%); height: 100%; transition: width 0.3s; }
         .error { background: #e74c3c; color: white; padding: 15px; border-radius: 5px; margin: 20px 0; }
     </style>
 </head>
@@ -94,12 +96,20 @@
                     <div id="policyContent"></div>
                 </div>
                 <div class="section" id="reviewSection" style="display: none;">
-                    <h2>✅ レビュー結果</h2>
+                    <h2>⚖️ 法律・実現性レビュー</h2>
                     <div id="reviewContent"></div>
                 </div>
                 <div class="section" id="evaluationsSection" style="display: none;">
                     <h2>👥 市民評価</h2>
                     <div id="evaluationsContent"></div>
+                </div>
+                <div class="section" id="futureSection" style="display: none;">
+                    <h2>🔮 10年後評価</h2>
+                    <div id="futureContent"></div>
+                </div>
+                <div class="section" id="finalSection" style="display: none;">
+                    <h2>🏆 最終評価</h2>
+                    <div id="finalContent"></div>
                 </div>
             `;
             
@@ -126,13 +136,32 @@
 
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
-                            const data = JSON.parse(line.slice(6));
-                            handleStreamEvent(data);
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                handleStreamEvent(data);
+                            } catch (parseError) {
+                                console.error('JSON parse error:', parseError, 'Line:', line);
+                            }
                         }
                     }
                 }
             } catch (error) {
-                result.innerHTML = `<div class="error">エラーが発生しました: ${error.message}</div>`;
+                console.error('Fetch error:', error);
+                result.innerHTML = `
+                    <div class="error">
+                        <h3>エラーが発生しました</h3>
+                        <p><strong>エラータイプ:</strong> ${error.name}</p>
+                        <p><strong>エラーメッセージ:</strong> ${error.message}</p>
+                        <p><strong>スタックトレース:</strong></p>
+                        <pre style="background: #2c3e50; color: #ecf0f1; padding: 10px; border-radius: 5px; overflow-x: auto;">${error.stack || 'N/A'}</pre>
+                        <p><strong>確認事項:</strong></p>
+                        <ul style="text-align: left; margin-left: 20px;">
+                            <li>Flaskサーバーが起動しているか確認してください</li>
+                            <li>URLがhttp://localhost:5000でアクセスできるか確認してください</li>
+                            <li>ブラウザのコンソールで詳細を確認してください</li>
+                        </ul>
+                    </div>
+                `;
             } finally {
                 submitBtn.disabled = false;
                 loading.style.display = 'none';
@@ -166,11 +195,22 @@
                     streamData.evaluations.push(event.data);
                     displayEvaluation(event.data);
                     break;
+                case 'future_evaluation':
+                    displayFutureEvaluation(event.data);
+                    break;
+                case 'final_assessment':
+                    displayFinalAssessment(event.data);
+                    break;
                 case 'complete':
                     document.getElementById('statusText').innerHTML = '<span style="color: #27ae60;">✅ 処理完了</span>';
                     break;
                 case 'error':
-                    document.getElementById('statusText').innerHTML = `<span style="color: #e74c3c;">❌ エラー: ${event.data}</span>`;
+                    console.error('Server error:', event);
+                    let errorHtml = `<span style="color: #e74c3c;">❌ エラー: ${event.data}</span>`;
+                    if (event.detail) {
+                        errorHtml += `<pre style="background: #2c3e50; color: #ecf0f1; padding: 10px; border-radius: 5px; overflow-x: auto; margin-top: 10px; font-size: 12px;">${event.detail}</pre>`;
+                    }
+                    document.getElementById('statusText').innerHTML = errorHtml;
                     break;
             }
         }
@@ -296,12 +336,63 @@
                     <div class="evaluation-card">
                         <div class="agent-name">${evaluation.evaluator_name}${affectedBadge}</div>
                         <div style="margin: 10px 0;">総合評価: <span class="rating">${evaluation.overall_rating}/5</span></div>
+                        <div style="margin: 10px 0;"><strong>個人への影響:</strong> ${evaluation.personal_impact || 'N/A'}</div>
                         <div style="margin: 10px 0;"><strong>期待:</strong> ${evaluation.expectations || 'N/A'}</div>
                         <div style="margin: 10px 0;"><strong>懸念:</strong> ${evaluation.concerns || 'N/A'}</div>
                         <div style="margin: 10px 0;"><strong>提言:</strong> ${evaluation.recommendations || 'N/A'}</div>
                     </div>
                 `;
             }
+        }
+
+        function displayFutureEvaluation(futureEval) {
+            const section = document.getElementById('futureSection');
+            section.style.display = 'block';
+            
+            const content = document.getElementById('futureContent');
+            content.innerHTML += `
+                <div class="evaluation-card">
+                    <div class="agent-name">${futureEval.evaluator_name} (現在${futureEval.age_now}歳)</div>
+                    <div style="margin: 10px 0;">10年後評価: <span class="rating">${futureEval.ten_year_rating}/5</span></div>
+                    <div style="margin: 10px 0;"><strong>10年間で観察された変化:</strong> ${futureEval.changes_observed || 'N/A'}</div>
+                    <div style="margin: 10px 0;"><strong>長期的な影響:</strong> ${futureEval.long_term_impact || 'N/A'}</div>
+                    <div style="margin: 10px 0;"><strong>予想外の結果:</strong> ${futureEval.unexpected_outcomes || 'N/A'}</div>
+                    <div style="margin: 10px 0;"><strong>現在の意見:</strong> ${futureEval.current_opinion || 'N/A'}</div>
+                </div>
+            `;
+        }
+
+        function displayFinalAssessment(assessment) {
+            const section = document.getElementById('finalSection');
+            section.style.display = 'block';
+            
+            const content = document.getElementById('finalContent');
+            const totalScore = assessment.total_score || 0;
+            const scoreColor = totalScore >= 70 ? '#27ae60' : totalScore >= 50 ? '#f39c12' : '#e74c3c';
+            
+            content.innerHTML = `
+                <div class="evaluation-card" style="border-left: 4px solid ${scoreColor};">
+                    <div style="font-size: 28px; font-weight: bold; color: ${scoreColor}; margin-bottom: 20px; text-align: center;">
+                        総合スコア: ${totalScore.toFixed(1)}/100
+                    </div>
+                    <div style="margin: 15px 0; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                        <div style="font-weight: bold; margin-bottom: 10px;">詳細評価:</div>
+                        <div style="margin: 8px 0;">⚖️ <strong>公平性 (25%):</strong> ${assessment.equity?.score || 0}/100 - ${assessment.equity?.comment || 'N/A'}</div>
+                        <div style="margin: 8px 0;">🎯 <strong>効果・成果 (25%):</strong> ${assessment.effectiveness?.score || 0}/100 - ${assessment.effectiveness?.comment || 'N/A'}</div>
+                        <div style="margin: 8px 0;">🔍 <strong>透明性・説明責任 (20%):</strong> ${assessment.transparency?.score || 0}/100 - ${assessment.transparency?.comment || 'N/A'}</div>
+                        <div style="margin: 8px 0;">🌱 <strong>持続可能性・コスト効率 (15%):</strong> ${assessment.sustainability?.score || 0}/100 - ${assessment.sustainability?.comment || 'N/A'}</div>
+                        <div style="margin: 8px 0;">❤️ <strong>社会的受容性・倫理性 (10%):</strong> ${assessment.ethical_acceptability?.score || 0}/100 - ${assessment.ethical_acceptability?.comment || 'N/A'}</div>
+                    </div>
+                    <div style="margin: 15px 0; padding: 10px; background: #e8f4f8; border-radius: 5px;">
+                        <div style="font-weight: bold; margin-bottom: 5px;">総合評価:</div>
+                        <div>${assessment.overall_comment || 'N/A'}</div>
+                    </div>
+                    <div style="margin: 15px 0; padding: 10px; background: ${totalScore >= 70 ? '#d4edda' : totalScore >= 50 ? '#fff3cd' : '#f8d7da'}; border-radius: 5px;">
+                        <div style="font-weight: bold; margin-bottom: 5px;">推奨判定:</div>
+                        <div style="font-size: 18px; font-weight: bold;">${assessment.recommendation || 'N/A'}</div>
+                    </div>
+                </div>
+            `;
         }
 
 
