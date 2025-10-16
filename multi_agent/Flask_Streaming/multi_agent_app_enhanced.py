@@ -27,7 +27,7 @@ def extract_json(message):
         return None
 
 async def invoke_async_streaming(payload):
-    """マルチエージェント政策システム（拡張版・ストリーミング対応）"""
+    """マルチエージェント施策システム（拡張版・ストリーミング対応）"""
     try:
         user_message = payload.get("prompt", "")
         
@@ -35,14 +35,14 @@ async def invoke_async_streaming(payload):
             yield {"type": "error", "data": "プロンプトが必要です"}
             return
         
-        # ステップ0: 類似政策の調査
-        yield {"type": "status", "data": "[ステップ0] 他自治体の類似政策を調査中..."}
+        # ステップ0: 類似施策の調査
+        yield {"type": "status", "data": "[ステップ0] 他自治体の類似施策を調査中..."}
         
         research_agent = Agent(
             model="us.anthropic.claude-sonnet-4-20250514-v1:0",
             callback_handler=None,
-            system_prompt="""あなたは自治体政策の調査専門家です。
-市民意見に関連する既存の政策事例を調査し、参考になる事例を提示してください。
+            system_prompt="""あなたは自治体施策の調査専門家です。
+市民意見に関連する既存の施策事例を調査し、参考になる事例を提示してください。
 
 調査優先順位:
 1. 大阪市の事例を最優先
@@ -53,7 +53,7 @@ async def invoke_async_streaming(payload):
 ```json
 {
   "similar_policies": [
-    {"municipality": "自治体名", "policy_name": "政策名", "summary": "概要", "results": "成果"}
+    {"municipality": "自治体名", "policy_name": "施策名", "summary": "概要", "results": "成果"}
   ],
   "has_references": true/false,
   "search_scope": "大阪市/他の市区町村/日本全体"
@@ -62,7 +62,7 @@ async def invoke_async_streaming(payload):
         )
         
         research_response = ""
-        async for event in research_agent.stream_async(f"市民意見: {user_message}\n\nまず大阪市の類似政策事例を調査してください。大阪市に事例がなければ他の市区町村や日本全国の事例を3つ程度調査してください。"):
+        async for event in research_agent.stream_async(f"市民意見: {user_message}\n\nまず大阪市の類似施策事例を調査してください。大阪市に事例がなければ他の市区町村や日本全国の事例を3つ程度調査してください。"):
             if "data" in event:
                 chunk = event["data"]
                 yield {"type": "stream", "step": "research", "data": chunk}
@@ -70,7 +70,7 @@ async def invoke_async_streaming(payload):
         
         research_result = extract_json(research_response) or {"similar_policies": [], "has_references": False}
         yield {"type": "research", "data": research_result}
-        yield {"type": "stream", "step": "research_complete", "data": f"\n\n【調査完了】類似政策: {len(research_result.get('similar_policies', []))}件"}
+        yield {"type": "stream", "step": "research_complete", "data": f"\n\n【調査完了】類似施策: {len(research_result.get('similar_policies', []))}件"}
         
         # ステップ1a: 人口動態調査
         yield {"type": "status", "data": "[ステップ1a] 対象地域の人口動態を調査中..."}
@@ -144,20 +144,20 @@ async def invoke_async_streaming(payload):
         sv_agent = Agent(
             model="us.anthropic.claude-sonnet-4-20250514-v1:0",
             callback_handler=None,
-            system_prompt="""市民意見を分析し、政策検討に必要なエージェントを設計してください。
+            system_prompt="""市民意見を分析し、施策検討に必要なエージェントを設計してください。
 
 あなたの役割:
 1. 市民意見の内容を分析
-2. 必要な政策立案エージェントの数と専門分野を決定（目安: 2-4名）
-   - 大阪市の政策担当者の視点を含める
+2. 必要な施策立案エージェントの数と専門分野を決定（目安: 2-4名）
+   - 大阪市の施策担当者の視点を含める
 3. 市民評価エージェントを最低10名設定（提供された人口動態データに基づく）
    - 大阪市民の多様な視点を反映
-4. 市民意見に直接関係ない層も含める（例：子育て政策なら独身高齢者も）
+4. 市民意見に直接関係ない層も含める（例：子育て施策なら独身高齢者も）
 
 市民エージェント設定基準:
 - 提供された人口動態データの年齢分布・性別比率・家族構成に従う
 - 大阪市の地域特性（商業都市、多様性等）を考慮
-- 政策の直接的影響を受けない層も含める
+- 施策の直接的影響を受けない層も含める
 
 出力形式:
 ```json
@@ -174,7 +174,7 @@ async def invoke_async_streaming(payload):
 }
 ```
 
-注意: is_directly_affected は政策の直接的な恩恵を受けるかどうかを示します（true=恩恵を受ける、false=恩恵を受けない/関係ない層）"""
+注意: is_directly_affected は施策の直接的な恩恵を受けるかどうかを示します（true=恩恵を受ける、false=恩恵を受けない/関係ない層）"""
         )
         
         sv_response = ""
@@ -192,12 +192,12 @@ async def invoke_async_streaming(payload):
         
         # is_directly_affectedフィールドの確認と警告
         unaffected_count = sum(1 for a in agent_defs.get("citizen_agents", []) if a.get("is_directly_affected") == False)
-        yield {"type": "status", "data": f"[ステップ1b] 生成完了: 市民エージェント{len(agent_defs.get('citizen_agents', []))}名（うち政策対象外{unaffected_count}名）"}
+        yield {"type": "status", "data": f"[ステップ1b] 生成完了: 市民エージェント{len(agent_defs.get('citizen_agents', []))}名（うち施策対象外{unaffected_count}名）"}
         
         yield {"type": "agent_defs", "data": agent_defs}
         
-        # ステップ2: Swarmで政策立案（類似政策を参考に）
-        yield {"type": "status", "data": "[ステップ2] 政策立案エージェントが協調実行中..."}
+        # ステップ2: Swarmで施策立案（類似施策を参考に）
+        yield {"type": "status", "data": "[ステップ2] 施策立案エージェントが協調実行中..."}
         
         reference_text = ""
         if research_result.get("has_references"):
@@ -209,7 +209,7 @@ async def invoke_async_streaming(payload):
             callback_handler=None
         )
         
-        swarm_prompt = f"""以下のエージェント定義に基づいてswarmを作成し、市民意見「{user_message}」に対する政策案をJSON形式で作成してください。
+        swarm_prompt = f"""以下のエージェント定義に基づいてswarmを作成し、市民意見「{user_message}」に対する施策案をJSON形式で作成してください。
 
 エージェント定義:
 {json.dumps(agent_defs['policy_agents'], ensure_ascii=False, indent=2)}
@@ -218,11 +218,11 @@ async def invoke_async_streaming(payload):
 出力形式:
 ```json
 {{
-  "policy_title": "政策名",
-  "summary": "政策概要",
-  "referenced_policies": ["参考にした自治体政策"],
+  "policy_title": "施策名",
+  "summary": "施策概要",
+  "referenced_policies": ["参考にした自治体施策"],
   "problem_analysis": "問題分析",
-  "recommended_policy": "推奨政策",
+  "recommended_policy": "推奨施策",
   "implementation_plan": "実施計画",
   "expected_effects": "期待効果",
   "is_temporary": true/false
@@ -255,9 +255,9 @@ async def invoke_async_streaming(payload):
         for attempt in range(1, 4):
             yield {"type": "status", "data": f"[ステップ3] レビュー試行 {attempt}/3"}
             
-            review_prompt = f"""以下の政策案を法律と実現性の観点でレビューしてください。
+            review_prompt = f"""以下の施策案を法律と実現性の観点でレビューしてください。
 
-政策案:
+施策案:
 {json.dumps(policy_json, ensure_ascii=False, indent=2)}
 
 出力形式:
@@ -286,18 +286,18 @@ async def invoke_async_streaming(payload):
                 break
             
             if attempt < 3:
-                yield {"type": "status", "data": f"[ステップ3] 承認されず、政策案を改善中..."}
+                yield {"type": "status", "data": f"[ステップ3] 承認されず、施策案を改善中..."}
                 
-                # 政策案を改善
-                improvement_prompt = f"""以下の政策案がレビューで承認されませんでした。
+                # 施策案を改善
+                improvement_prompt = f"""以下の施策案がレビューで承認されませんでした。
 
-元の政策案:
+元の施策案:
 {json.dumps(policy_json, ensure_ascii=False, indent=2)}
 
 レビュー結果:
 {json.dumps(review_result, ensure_ascii=False, indent=2)}
 
-改善提案に基づいて政策案を修正してください。出力形式は元の政策案と同じJSON形式です。"""
+改善提案に基づいて施策案を修正してください。出力形式は元の施策案と同じJSON形式です。"""
                 
                 policy_response = ""
                 async for event in swarm_agent.stream_async(improvement_prompt):
@@ -319,9 +319,9 @@ async def invoke_async_streaming(payload):
         yield {"type": "status", "data": "[ステップ4] 市民エージェントが評価中..."}
         
         policy_summary = f"""
-政策名: {policy_json.get('policy_title', 'N/A')}
+施策名: {policy_json.get('policy_title', 'N/A')}
 概要: {policy_json.get('summary', 'N/A')}
-推奨政策: {policy_json.get('recommended_policy', 'N/A')}
+推奨施策: {policy_json.get('recommended_policy', 'N/A')}
 参考事例: {', '.join(policy_json.get('referenced_policies', []))}
 """
         
@@ -341,14 +341,14 @@ async def invoke_async_streaming(payload):
 あなたの立場: {agent_def['profile']}
 年齢: {agent_def['age']}歳、性別: {agent_def.get('gender', '不明')}、家族: {agent_def.get('family', '不明')}
 
-上記の政策案を、あなた自身の生活や立場から評価してください。
+上記の施策案を、あなた自身の生活や立場から評価してください。
 
 出力形式:
 ```json
 {{
   "evaluator_name": "{agent_def['name']}",
   "overall_rating": 3,
-  "personal_impact": "この政策が自分の生活にどう影響するか（具体的に200文字程度）",
+  "personal_impact": "この施策が自分の生活にどう影響するか（具体的に200文字程度）",
   "expectations": "期待すること（具体的に200文字程度）",
   "concerns": "懸念すること（具体的に200文字程度）",
   "recommendations": "提言（具体的に200文字程度）"
@@ -371,7 +371,7 @@ async def invoke_async_streaming(payload):
             except Exception as e:
                 citizen_evaluations.append({"evaluator_name": agent_def['name'], "error": str(e), "is_directly_affected": agent_def.get("is_directly_affected", True)})
         
-        # ステップ5: 10年後評価（一時的政策でない場合）
+        # ステップ5: 10年後評価（一時的施策でない場合）
         future_evaluations = []
         if not policy_json.get("is_temporary", False):
             yield {"type": "status", "data": "[ステップ5] 10年後の評価をシミュレーション中..."}
@@ -389,7 +389,7 @@ async def invoke_async_streaming(payload):
                 future_prompt = f"""{policy_summary}
 
 あなたは10年後の{agent_def['age']+10}歳になっています。
-この政策が実施されて10年が経過しました。
+この施策が実施されて10年が経過しました。
 
 10年間の変化と現在の評価を述べてください。
 
@@ -431,8 +431,8 @@ async def invoke_async_streaming(payload):
         final_evaluator = Agent(
             model="us.anthropic.claude-sonnet-4-20250514-v1:0",
             callback_handler=None,
-            system_prompt="""あなたは政策評価の専門家です。
-以下の5つの観点から政策を評価してください。
+            system_prompt="""あなたは施策評価の専門家です。
+以下の5つの観点から施策を評価してください。
 
 1. 公平性（Equity）- 重み25%
 2. 効果・成果（Effectiveness）- 重み25% （市民評価を反映）
@@ -455,18 +455,18 @@ async def invoke_async_streaming(payload):
 ```"""
         )
         
-        final_prompt = f"""政策案:
+        final_prompt = f"""施策案:
 {json.dumps(policy_json, ensure_ascii=False, indent=2)}
 
 市民評価数: {len(citizen_evaluations)}名
 市民評価データ:
 {json.dumps(citizen_evaluations, ensure_ascii=False, indent=2)}
 
-以下の5つの観点で政策を評価してください：
+以下の5つの観点で施策を評価してください：
 
 1. 公平性（Equity）- 重み25%
    - 施策が特定層に偏らず、公平に恩恵が行き渡るか
-   - 政策対象外の市民の意見も考慮
+   - 施策対象外の市民の意見も考慮
    - 支援対象分布の偏り、格差是正度を評価
 
 2. 効果・成果（Effectiveness）- 重み25%
@@ -539,7 +539,7 @@ async def invoke_async_streaming(payload):
         print(f"\n\nエラー詳細:\n{error_msg}")
 
 async def invoke_async(payload):
-    """マルチエージェント政策システム（非同期）"""
+    """マルチエージェント施策システム（非同期）"""
     result_json = {}
     async for chunk in invoke_async_streaming(payload):
         if chunk["type"] == "complete":

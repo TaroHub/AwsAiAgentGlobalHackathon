@@ -27,7 +27,7 @@ def extract_json(message):
         return None
 
 async def invoke_async_streaming(payload):
-    """マルチエージェント政策システム（ストリーミング対応）"""
+    """マルチエージェント施策システム（ストリーミング対応）"""
     try:
         user_message = payload.get("prompt", "")
         
@@ -40,11 +40,11 @@ async def invoke_async_streaming(payload):
         sv_agent = Agent(
             model="us.anthropic.claude-sonnet-4-20250514-v1:0",
             callback_handler=None,
-            system_prompt="""市民意見を分析し、政策検討に必要なエージェントを設計してください。
+            system_prompt="""市民意見を分析し、施策検討に必要なエージェントを設計してください。
 
 あなたの役割:
 1. 市民意見の内容を分析
-2. 必要な政策立案エージェントの数と専門分野を決定（目安: 2-4名）
+2. 必要な施策立案エージェントの数と専門分野を決定（目安: 2-4名）
 3. 必要な市民評価エージェントの数と立場を決定（目安: 3-7名）
 4. 各エージェントの詳細なsystem_promptを作成
 
@@ -63,8 +63,8 @@ async def invoke_async_streaming(payload):
 ```
 
 決定基準:
-- 政策立案エージェント: 市民意見の内容に応じて必要な専門家を選定
-- 市民評価エージェント: 政策の影響を受ける多様な立場を代表
+- 施策立案エージェント: 市民意見の内容に応じて必要な専門家を選定
+- 市民評価エージェント: 施策の影響を受ける多様な立場を代表
 - system_promptには具体的な指示、評価基準、出力形式を明記
 """
         )
@@ -83,7 +83,7 @@ async def invoke_async_streaming(payload):
             return
         
         yield {"type": "agent_defs", "data": agent_defs}
-        yield {"type": "status", "data": "[ステップ2] Swarmで政策立案エージェントを協調実行中..."}
+        yield {"type": "status", "data": "[ステップ2] Swarmで施策立案エージェントを協調実行中..."}
         
         swarm_agent = Agent(
             model="us.anthropic.claude-sonnet-4-20250514-v1:0",
@@ -91,7 +91,7 @@ async def invoke_async_streaming(payload):
             callback_handler=None
         )
         
-        swarm_prompt = f"""以下のエージェント定義に基づいてswarmを作成し、市民意見「{user_message}」に対する政策案をJSON形式で作成してください。
+        swarm_prompt = f"""以下のエージェント定義に基づいてswarmを作成し、市民意見「{user_message}」に対する施策案をJSON形式で作成してください。
 
 エージェント定義:
 {json.dumps(agent_defs['policy_agents'], ensure_ascii=False, indent=2)}
@@ -99,8 +99,8 @@ async def invoke_async_streaming(payload):
 出力形式:
 ```json
 {{
-  "policy_title": "政策名",
-  "summary": "政策概要",
+  "policy_title": "施策名",
+  "summary": "施策概要",
   "problem_analysis": "問題分析",
   "policy_options": [
     {{
@@ -110,7 +110,7 @@ async def invoke_async_streaming(payload):
       "demerits": ["デメリット1"]
     }}
   ],
-  "recommended_policy": "推奨政策",
+  "recommended_policy": "推奨施策",
   "implementation_plan": "実施計画",
   "expected_effects": "期待効果",
   "risks": "リスク"
@@ -133,9 +133,9 @@ async def invoke_async_streaming(payload):
         yield {"type": "status", "data": "[ステップ3] 市民評価を実行中..."}
         
         policy_summary = f"""
-政策名: {policy_json.get('policy_title', 'N/A')}
+施策名: {policy_json.get('policy_title', 'N/A')}
 概要: {policy_json.get('summary', 'N/A')}
-推奨政策: {policy_json.get('recommended_policy', 'N/A')}
+推奨施策: {policy_json.get('recommended_policy', 'N/A')}
 """
         
         citizen_evaluations = []
@@ -153,7 +153,7 @@ async def invoke_async_streaming(payload):
 
 あなたの立場: {agent_def['profile']}
 
-上記の政策案を評価し、以下のJSON形式で出力してください:
+上記の施策案を評価し、以下のJSON形式で出力してください:
 
 重要: overall_ratingは必ず1から5の整数で評価してください（1:非常に悪い、2:悪い、3:普通、4:良い、5:非常に良い）
 
@@ -224,7 +224,7 @@ async def invoke_async_streaming(payload):
         print(f"\n\nエラー詳細:\n{error_msg}")
 
 async def invoke_async(payload):
-    """マルチエージェント政策システム（非同期 + Swarm + Workflow）"""
+    """マルチエージェント施策システム（非同期 + Swarm + Workflow）"""
     result_json = {}
     async for chunk in invoke_async_streaming(payload):
         if chunk["type"] == "complete":
@@ -243,7 +243,7 @@ if __name__ == "__main__":
     
     if len(sys.argv) > 1 and sys.argv[1] == "--stream":
         test_payload = {"prompt": "子育て支援の所得制限を撤廃して欲しい"}
-        print("■■■ 政策検討システム開始（ストリーミング） ■■■")
+        print("■■■ 施策検討システム開始（ストリーミング） ■■■")
         print(f"市民意見: {test_payload['prompt']}\n")
         
         async def test_streaming():
@@ -265,7 +265,7 @@ if __name__ == "__main__":
             traceback.print_exc()
     else:
         test_payload = {"prompt": "子育て支援の所得制限を撤廃して欲しい"}
-        print("■■■ 政策検討システム開始 ■■■")
+        print("■■■ 施策検討システム開始 ■■■")
         print(f"市民意見: {test_payload['prompt']}")
         
         try:

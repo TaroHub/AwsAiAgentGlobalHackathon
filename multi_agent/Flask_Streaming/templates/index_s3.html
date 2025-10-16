@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>市民政策評価システム</title>
+    <title>市民施策評価システム</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; padding: 20px; }
@@ -32,11 +32,11 @@
 </head>
 <body>
     <div class="container">
-        <h1>🏛️ 市民政策評価システム</h1>
+        <h1>🏛️ 市民施策評価システム</h1>
         
         <div class="input-section">
             <textarea id="promptInput" placeholder="市民意見を入力してください（例：子育て支援の所得制限を撤廃して欲しい）"></textarea>
-            <button id="submitBtn" onclick="submitPrompt()">政策評価を開始</button>
+            <button id="submitBtn" onclick="submitPrompt()">施策評価を開始</button>
         </div>
         
         <div class="loading" id="loading">
@@ -78,13 +78,13 @@
                 </div>
                 <div class="section" id="agentsSection" style="display: none;">
                     <h2>📋 生成されたエージェント</h2>
-                    <h3 style="margin: 15px 0 10px 0;">政策立案エージェント</h3>
+                    <h3 style="margin: 15px 0 10px 0;">施策立案エージェント</h3>
                     <div id="policyAgents"></div>
                     <h3 style="margin: 15px 0 10px 0;">市民評価エージェント</h3>
                     <div id="citizenAgents"></div>
                 </div>
                 <div class="section" id="policySection" style="display: none;">
-                    <h2>📜 政策案</h2>
+                    <h2>📜 施策案</h2>
                     <div id="policyContent"></div>
                 </div>
                 <div class="section" id="evaluationsSection" style="display: none;">
@@ -193,7 +193,7 @@
             content.innerHTML = `
                 <div class="policy-title">${policy.policy_title || 'N/A'}</div>
                 <div class="policy-content"><strong>概要:</strong><br>${policy.summary || 'N/A'}</div><br>
-                <div class="policy-content"><strong>推奨政策:</strong><br>${policy.recommended_policy || 'N/A'}</div>
+                <div class="policy-content"><strong>推奨施策:</strong><br>${policy.recommended_policy || 'N/A'}</div>
             `;
         }
 
