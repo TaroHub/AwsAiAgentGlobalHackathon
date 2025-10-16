@@ -538,20 +538,11 @@ async def invoke_async_streaming(payload):
         yield {"type": "error", "data": f"エラーが発生しました: {str(e)}"}
         print(f"\n\nエラー詳細:\n{error_msg}")
 
-async def invoke_async(payload):
-    """マルチエージェント施策システム（非同期）"""
-    result_json = {}
-    async for chunk in invoke_async_streaming(payload):
-        if chunk["type"] == "complete":
-            result_json = chunk["data"]
-        elif chunk["type"] == "error":
-            return {"error": chunk["data"]}
-    return result_json
-
 @app.entrypoint
-def invoke(payload):
-    """AgentCore Runtime エントリーポイント"""
-    return asyncio.run(invoke_async(payload))
+async def invoke(payload):
+    """AgentCore Runtime エントリーポイント（ストリーミング対応）"""
+    async for chunk in invoke_async_streaming(payload):
+        yield chunk
 
 if __name__ == "__main__":
     # AgentCore Runtimeデプロイ用
