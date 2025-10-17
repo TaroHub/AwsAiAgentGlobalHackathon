@@ -78,13 +78,15 @@ async def invoke_async_streaming(payload):
         demographics_agent = Agent(
             model="us.anthropic.claude-sonnet-4-20250514-v1:0",
             callback_handler=None,
-            system_prompt="""あなたは人口統計の専門家です。
-市民意見から対象地域を特定し、その地域の人口動態を調査してください。
+            system_prompt="""あなたは人口統計と多文化共生の専門家です。
+市民意見から対象地域を特定し、その地域の人口動態と言語・文化背景を調査してください。
 
 調査優先順位:
 1. 大阪市の人口動態を最優先
 2. 市民意見で特定の地域が明示されている場合はその地域
 3. 大阪市のデータが不明な場合は他の政令指定都市や日本全体の統計
+
+多文化対応人材が意思決定に使いやすいよう、信頼できる公的統計や調査を引用しながら言語面の課題を定量化してください。
 
 出力形式:
 ```json
@@ -105,6 +107,24 @@ async def invoke_async_streaming(payload):
     {"type": "三世代同居", "percentage": 10},
     {"type": "高齢者のみ", "percentage": 10}
   ],
+  "language_distribution": [
+    {"language": "日本語", "percentage": 60, "notes": "備考"},
+    {"language": "英語", "percentage": 15, "notes": "主にビジネス層"}
+  ],
+  "japanese_proficiency_levels": {
+    "fluent": 30,
+    "conversational": 40,
+    "basic": 20,
+    "needs_support": 10
+  },
+  "cultural_considerations": [
+    {"group": "地域・文化圏", "key_points": ["宗教行事の配慮", "学校での文化摩擦"]},
+    {"group": "技能実習生", "key_points": ["行政手続きの支援", "労働時間管理"]}
+  ],
+  "priority_services": [
+    "行政手続きの多言語化（日本語・英語・中国語・ベトナム語）",
+    "学校での多文化サポート教員の配置"
+  ],
   "data_source": "データソース",
   "data_scope": "大阪市/他の市区町村/日本全体"
 }
@@ -123,7 +143,23 @@ async def invoke_async_streaming(payload):
             yield {"type": "error", "data": "人口動態データの取得に失敗しました"}
             return
         yield {"type": "demographics", "data": demographics_data}
-        yield {"type": "stream", "step": "demographics_complete", "data": f"\n\n【調査完了】対象地域: {demographics_data.get('target_area', '不明')}\n年齢分布: {json.dumps(demographics_data.get('age_distribution', {}), ensure_ascii=False)}\n性別比率: {json.dumps(demographics_data.get('gender_ratio', {}), ensure_ascii=False)}"}
+        language_distribution = demographics_data.get('language_distribution', [])
+        language_summary = ", ".join(
+            f"{entry.get('language', '不明')}: {entry.get('percentage', '?')}%"
+            for entry in language_distribution[:3]
+        ) or "不明"
+        japanese_proficiency = demographics_data.get('japanese_proficiency_levels', {})
+        proficiency_summary = ", ".join(
+            f"{level}: {percentage}%"
+            for level, percentage in japanese_proficiency.items()
+        ) or "不明"
+        yield {"type": "stream", "step": "demographics_complete", "data": (
+            f"\n\n【調査完了】対象地域: {demographics_data.get('target_area', '不明')}"
+            f"\n年齢分布: {json.dumps(demographics_data.get('age_distribution', {}), ensure_ascii=False)}"
+            f"\n性別比率: {json.dumps(demographics_data.get('gender_ratio', {}), ensure_ascii=False)}"
+            f"\n主な言語: {language_summary}"
+            f"\n日本語習熟度: {proficiency_summary}"
+        )}
         
         # ステップ1b: SVエージェントがエージェント定義を生成（調査した人口動態に基づく）
         yield {"type": "status", "data": "[ステップ1b] エージェント定義を生成中（調査した人口動態に基づく、最低10名）..."}
@@ -133,6 +169,10 @@ async def invoke_async_streaming(payload):
 年齢分布: {json.dumps(demographics_data.get('age_distribution', {}), ensure_ascii=False)}
 性別比率: {json.dumps(demographics_data.get('gender_ratio', {}), ensure_ascii=False)}
 家族構成: {json.dumps(demographics_data.get('family_types', []), ensure_ascii=False)}
+言語分布: {json.dumps(demographics_data.get('language_distribution', []), ensure_ascii=False)}
+日本語習熟度: {json.dumps(demographics_data.get('japanese_proficiency_levels', {}), ensure_ascii=False)}
+文化的配慮事項: {json.dumps(demographics_data.get('cultural_considerations', []), ensure_ascii=False)}
+優先サービス: {json.dumps(demographics_data.get('priority_services', []), ensure_ascii=False)}
 """
         
         sv_agent = Agent(
