@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>市民施策評価システム</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; margin-bottom: 30px; text-align: center; }
+        .input-section { margin-bottom: 30px; }
+        textarea { width: 100%; padding: 15px; border: 2px solid #ddd; border-radius: 5px; font-size: 16px; min-height: 120px; resize: vertical; }
+        button { background: #3498db; color: white; padding: 15px 40px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; width: 100%; }
+        button:hover { background: #2980b9; }
+        button:disabled { background: #95a5a6; cursor: not-allowed; }
+        .loading { display: none; text-align: center; margin: 20px 0; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .result { margin-top: 30px; display: none; }
+        .section { background: #f8f9fa; padding: 20px; margin-bottom: 20px; border-radius: 5px; border-left: 4px solid #3498db; }
+        .section h2 { color: #2c3e50; margin-bottom: 15px; font-size: 20px; }
+        .agent-card { background: white; padding: 15px; margin: 10px 0; border-radius: 5px; border: 1px solid #e0e0e0; }
+        .badge-unaffected { background: #95a5a6; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px; }
+        .agent-name { font-weight: bold; color: #2c3e50; margin-bottom: 5px; }
+        .agent-profile { color: #7f8c8d; font-size: 14px; }
+        .policy-title { font-size: 24px; font-weight: bold; color: #2c3e50; margin-bottom: 15px; }
+        .policy-content { line-height: 1.8; color: #34495e; }
+        .evaluation-card { background: white; padding: 20px; margin: 15px 0; border-radius: 5px; border: 1px solid #e0e0e0; }
+        .rating { display: inline-block; background: #3498db; color: white; padding: 5px 15px; border-radius: 20px; font-weight: bold; }
+        .score-bar { background: #e0e0e0; height: 20px; border-radius: 10px; overflow: hidden; margin: 5px 0; }
+        .score-fill { background: linear-gradient(90deg, #e74c3c 0%, #f39c12 50%, #27ae60 100%); height: 100%; transition: width 0.3s; }
+        .error { background: #e74c3c; color: white; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏛️ 市民施策評価システム</h1>
+        
+        <div class="input-section">
+            <textarea id="promptInput" placeholder="市民意見を入力してください（例：子育て支援の所得制限を撤廃して欲しい）"></textarea>
+            <button id="submitBtn" onclick="submitPrompt()">施策評価を開始</button>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 15px; color: #7f8c8d;">処理中です。しばらくお待ちください...</p>
+        </div>
+        
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        let streamData = {
+            agentDefs: null,
+            policy: null,
+            evaluations: []
+        };
+
+        async function submitPrompt() {
+            const prompt = document.getElementById('promptInput').value.trim();
+            if (!prompt) {
+                alert('市民意見を入力してください');
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitBtn');
+            const loading = document.getElementById('loading');
+            const result = document.getElementById('result');
+
+            submitBtn.disabled = true;
+            loading.style.display = 'block';
+            result.style.display = 'block';
+            result.innerHTML = `
+                <div class="section" id="statusSection">
+                    <h2>📡 処理状況</h2>
+                    <div id="statusText" style="color: #3498db; font-weight: bold;"></div>
+                </div>
+                <div class="section" id="researchSection" style="display: none;">
+                    <h2>🔍 類似施策調査</h2>
+                    <div id="researchContent"></div>
+                </div>
+                <div class="section" id="demographicsSection" style="display: none;">
+                    <h2>📊 人口動態調査</h2>
+                    <div id="demographicsContent"></div>
+                </div>
+                <div class="section" id="agentsSection" style="display: none;">
+                    <h2>📋 生成されたエージェント</h2>
+                    <h3 style="margin: 15px 0 10px 0;">施策立案エージェント</h3>
+                    <div id="policyAgents"></div>
+                    <h3 style="margin: 15px 0 10px 0;">市民評価エージェント</h3>
+                    <div id="citizenAgents"></div>
+                </div>
+                <div class="section" id="policySection" style="display: none;">
+                    <h2>📜 施策案</h2>
+                    <div id="policyContent"></div>
+                </div>
+                <div class="section" id="reviewSection" style="display: none;">
+                    <h2>⚖️ 法律・実現性レビュー</h2>
+                    <div id="reviewContent"></div>
+                </div>
+                <div class="section" id="evaluationsSection" style="display: none;">
+                    <h2>👥 市民評価</h2>
+                    <div id="evaluationsContent"></div>
+                </div>
+                <div class="section" id="futureSection" style="display: none;">
+                    <h2>🔮 10年後評価</h2>
+                    <div id="futureContent"></div>
+                </div>
+                <div class="section" id="finalSection" style="display: none;">
+                    <h2>🏆 最終評価</h2>
+                    <div id="finalContent"></div>
+                </div>
+            `;
+            
+            streamData = { agentDefs: null, policy: null, evaluations: [] };
+
+            try {
+                const response = await fetch('/api/evaluate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                handleStreamEvent(data);
+                            } catch (parseError) {
+                                console.error('JSON parse error:', parseError, 'Line:', line);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                result.innerHTML = `
+                    <div class="error">
+                        <h3>エラーが発生しました</h3>
+                        <p><strong>エラータイプ:</strong> ${error.name}</p>
+                        <p><strong>エラーメッセージ:</strong> ${error.message}</p>
+                        <p><strong>スタックトレース:</strong></p>
+                        <pre style="background: #2c3e50; color: #ecf0f1; padding: 10px; border-radius: 5px; overflow-x: auto;">${error.stack || 'N/A'}</pre>
+                        <p><strong>確認事項:</strong></p>
+                        <ul style="text-align: left; margin-left: 20px;">
+                            <li>Flaskサーバーが起動しているか確認してください</li>
+                            <li>URLがhttp://localhost:5000でアクセスできるか確認してください</li>
+                            <li>ブラウザのコンソールで詳細を確認してください</li>
+                        </ul>
+                    </div>
+                `;
+            } finally {
+                submitBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+
+        function handleStreamEvent(event) {
+            switch(event.type) {
+                case 'status':
+                    document.getElementById('statusText').textContent = event.data;
+                    break;
+                case 'research':
+                    displayResearch(event.data);
+                    break;
+                case 'demographics':
+                    displayDemographics(event.data);
+                    break;
+                case 'agent_defs':
+                    streamData.agentDefs = event.data;
+                    displayAgents(event.data);
+                    break;
+                case 'policy':
+                    streamData.policy = event.data;
+                    displayPolicy(event.data);
+                    break;
+                case 'review':
+                case 'review_final':
+                    displayReview(event.data);
+                    break;
+                case 'evaluation':
+                    streamData.evaluations.push(event.data);
+                    displayEvaluation(event.data);
+                    break;
+                case 'future_evaluation':
+                    displayFutureEvaluation(event.data);
+                    break;
+                case 'final_assessment':
+                    displayFinalAssessment(event.data);
+                    break;
+                case 'complete':
+                    document.getElementById('statusText').innerHTML = '<span style="color: #27ae60;">✅ 処理完了</span>';
+                    break;
+                case 'error':
+                    console.error('Server error:', event);
+                    let errorHtml = `<span style="color: #e74c3c;">❌ エラー: ${event.data}</span>`;
+                    if (event.detail) {
+                        errorHtml += `<pre style="background: #2c3e50; color: #ecf0f1; padding: 10px; border-radius: 5px; overflow-x: auto; margin-top: 10px; font-size: 12px;">${event.detail}</pre>`;
+                    }
+                    document.getElementById('statusText').innerHTML = errorHtml;
+                    break;
+            }
+        }
+
+        function displayResearch(research) {
+            const section = document.getElementById('researchSection');
+            section.style.display = 'block';
+            
+            const content = document.getElementById('researchContent');
+            if (research.similar_policies && research.similar_policies.length > 0) {
+                content.innerHTML = research.similar_policies.map(policy => `
+                    <div class="agent-card">
+                        <div class="agent-name">${policy.municipality} - ${policy.policy_name}</div>
+                        <div class="agent-profile"><strong>概要:</strong> ${policy.summary}</div>
+                        <div class="agent-profile"><strong>成果:</strong> ${policy.results}</div>
+                    </div>
+                `).join('');
+            } else {
+                content.innerHTML = '<p style="color: #7f8c8d;">類似施策は見つかりませんでした</p>';
+            }
+        }
+
+        function displayDemographics(demographics) {
+            const section = document.getElementById('demographicsSection');
+            section.style.display = 'block';
+            
+            const content = document.getElementById('demographicsContent');
+            const ageDistribution = demographics.age_distribution || {};
+            const genderRatio = demographics.gender_ratio || {};
+            const familyTypes = demographics.family_types || [];
+            
+            content.innerHTML = `
+                <div class="agent-card">
+                    <div class="agent-name">対象地域: ${demographics.target_area || '不明'}</div>
+                    <div class="agent-profile"><strong>年齢分布:</strong> ${Object.entries(ageDistribution).map(([k,v]) => `${k}: ${v}%`).join(', ')}</div>
+                    <div class="agent-profile"><strong>性別比率:</strong> 男性 ${genderRatio.male || 0}%, 女性 ${genderRatio.female || 0}%</div>
+                    <div class="agent-profile"><strong>家族構成:</strong> ${familyTypes.map(f => `${f.type} ${f.percentage}%`).join(', ')}</div>
+                    ${demographics.data_source ? `<div class="agent-profile"><strong>データソース:</strong> ${demographics.data_source}</div>` : ''}
+                </div>
+            `;
+        }
+
+        function displayReview(review) {
+            const section = document.getElementById('reviewSection');
+            section.style.display = 'block';
+            
+            const content = document.getElementById('reviewContent');
+            const approved = review.approved ? '✅ 承認' : '❌ 不承認';
+            const approvedColor = review.approved ? '#27ae60' : '#e74c3c';
+            const attemptText = review.attempt ? ` (試行 ${review.attempt}/3)` : '';
+            
+            content.innerHTML = `
+                <div class="agent-card">
+                    <div style="font-size: 18px; font-weight: bold; color: ${approvedColor}; margin-bottom: 10px;">${approved}${attemptText}</div>
+                    ${review.legal_compliance ? `<div class="agent-profile"><strong>法律適合性:</strong> ${review.legal_compliance.score}/5 - ${review.legal_compliance.issues?.join(', ') || '問題なし'}</div>` : ''}
+                    ${review.feasibility ? `<div class="agent-profile"><strong>実現可能性:</strong> ${review.feasibility.score}/5 - ${review.feasibility.issues?.join(', ') || '問題なし'}</div>` : ''}
+                    ${review.overall_assessment ? `<div class="agent-profile"><strong>総合評価:</strong> ${review.overall_assessment}</div>` : ''}
+                    ${review.improvement_suggestions ? `<div class="agent-profile"><strong>改善提案:</strong> ${review.improvement_suggestions}</div>` : ''}
+                </div>
+            `;
+        }
+
+        function displayAgents(agentDefs) {
+            const section = document.getElementById('agentsSection');
+            section.style.display = 'block';
+            
+            const policyAgentsDiv = document.getElementById('policyAgents');
+            policyAgentsDiv.innerHTML = '';
+            agentDefs.policy_agents.forEach(agent => {
+                policyAgentsDiv.innerHTML += `
+                    <div class="agent-card">
+                        <div class="agent-name">${agent.name}</div>
+                        <div class="agent-profile">専門分野: ${agent.expertise}</div>
+                    </div>
+                `;
+            });
+            
+            const citizenAgentsDiv = document.getElementById('citizenAgents');
+            citizenAgentsDiv.innerHTML = '';
+            agentDefs.citizen_agents.forEach(agent => {
+                const affectedBadge = agent.is_directly_affected === false ? 
+                    '<span style="background: #95a5a6; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px;">施策対象外</span>' : '';
+                citizenAgentsDiv.innerHTML += `
+                    <div class="agent-card">
+                        <div class="agent-name">${agent.name} (${agent.age}歳)${affectedBadge}</div>
+                        <div class="agent-profile">${agent.profile}</div>
+                    </div>
+                `;
+            });
+        }
+
+        function displayPolicy(policy) {
+            const section = document.getElementById('policySection');
+            section.style.display = 'block';
+            
+            const content = document.getElementById('policyContent');
+            const improvedBadge = policy.improved ? `<span style="background: #f39c12; color: white; padding: 3px 10px; border-radius: 5px; font-size: 12px; margin-left: 10px;">改善版 (試行${policy.attempt})</span>` : '';
+            content.innerHTML = `
+                <div class="policy-title">${policy.policy_title || 'N/A'}${improvedBadge}</div>
+                <div class="policy-content"><strong>概要:</strong><br>${policy.summary || 'N/A'}</div><br>
+                <div class="policy-content"><strong>推奨施策:</strong><br>${policy.recommended_policy || 'N/A'}</div>
+                ${policy.referenced_policies && policy.referenced_policies.length > 0 ? `<br><div class="policy-content"><strong>参考事例:</strong> ${policy.referenced_policies.join(', ')}</div>` : ''}
+            `;
+        }
+
+        function displayEvaluation(evaluation) {
+            const section = document.getElementById('evaluationsSection');
+            section.style.display = 'block';
+            
+            const content = document.getElementById('evaluationsContent');
+            const affectedBadge = evaluation.is_directly_affected === false ? 
+                '<span style="background: #95a5a6; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px;">施策対象外</span>' : '';
+            
+            if (evaluation.error) {
+                content.innerHTML += `
+                    <div class="evaluation-card">
+                        <div class="agent-name">${evaluation.evaluator_name}${affectedBadge}</div>
+                        <div style="color: #e74c3c;">エラー: ${evaluation.error}</div>
+                    </div>
+                `;
+            } else {
+                content.innerHTML += `
+                    <div class="evaluation-card">
+                        <div class="agent-name">${evaluation.evaluator_name}${affectedBadge}</div>
+                        <div style="margin: 10px 0;">総合評価: <span class="rating">${evaluation.overall_rating}/5</span></div>
+                        <div style="margin: 10px 0;"><strong>個人への影響:</strong> ${evaluation.personal_impact || 'N/A'}</div>
+                        <div style="margin: 10px 0;"><strong>期待:</strong> ${evaluation.expectations || 'N/A'}</div>
+                        <div style="margin: 10px 0;"><strong>懸念:</strong> ${evaluation.concerns || 'N/A'}</div>
+                        <div style="margin: 10px 0;"><strong>提言:</strong> ${evaluation.recommendations || 'N/A'}</div>
+                    </div>
+                `;
+            }
+        }
+
+        function displayFutureEvaluation(futureEval) {
+            const section = document.getElementById('futureSection');
+            section.style.display = 'block';
+            
+            const content = document.getElementById('futureContent');
+            content.innerHTML += `
+                <div class="evaluation-card">
+                    <div class="agent-name">${futureEval.evaluator_name} (現在${futureEval.age_now}歳)</div>
+                    <div style="margin: 10px 0;">10年後評価: <span class="rating">${futureEval.ten_year_rating}/5</span></div>
+                    <div style="margin: 10px 0;"><strong>10年間で観察された変化:</strong> ${futureEval.changes_observed || 'N/A'}</div>
+                    <div style="margin: 10px 0;"><strong>長期的な影響:</strong> ${futureEval.long_term_impact || 'N/A'}</div>
+                    <div style="margin: 10px 0;"><strong>予想外の結果:</strong> ${futureEval.unexpected_outcomes || 'N/A'}</div>
+                    <div style="margin: 10px 0;"><strong>現在の意見:</strong> ${futureEval.current_opinion || 'N/A'}</div>
+                </div>
+            `;
+        }
+
+        function displayFinalAssessment(assessment) {
+            const section = document.getElementById('finalSection');
+            section.style.display = 'block';
+            
+            const content = document.getElementById('finalContent');
+            const totalScore = assessment.total_score || 0;
+            const scoreColor = totalScore >= 70 ? '#27ae60' : totalScore >= 50 ? '#f39c12' : '#e74c3c';
+            
+            content.innerHTML = `
+                <div class="evaluation-card" style="border-left: 4px solid ${scoreColor};">
+                    <div style="font-size: 28px; font-weight: bold; color: ${scoreColor}; margin-bottom: 20px; text-align: center;">
+                        総合スコア: ${totalScore.toFixed(1)}/100
+                    </div>
+                    <div style="margin: 15px 0; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                        <div style="font-weight: bold; margin-bottom: 10px;">詳細評価:</div>
+                        <div style="margin: 8px 0;">⚖️ <strong>公平性 (25%):</strong> ${assessment.equity?.score || 0}/100 - ${assessment.equity?.comment || 'N/A'}</div>
+                        <div style="margin: 8px 0;">🎯 <strong>効果・成果 (25%):</strong> ${assessment.effectiveness?.score || 0}/100 - ${assessment.effectiveness?.comment || 'N/A'}</div>
+                        <div style="margin: 8px 0;">🔍 <strong>透明性・説明責任 (20%):</strong> ${assessment.transparency?.score || 0}/100 - ${assessment.transparency?.comment || 'N/A'}</div>
+                        <div style="margin: 8px 0;">🌱 <strong>持続可能性・コスト効率 (15%):</strong> ${assessment.sustainability?.score || 0}/100 - ${assessment.sustainability?.comment || 'N/A'}</div>
+                        <div style="margin: 8px 0;">❤️ <strong>社会的受容性・倫理性 (10%):</strong> ${assessment.ethical_acceptability?.score || 0}/100 - ${assessment.ethical_acceptability?.comment || 'N/A'}</div>
+                    </div>
+                    <div style="margin: 15px 0; padding: 10px; background: #e8f4f8; border-radius: 5px;">
+                        <div style="font-weight: bold; margin-bottom: 5px;">総合評価:</div>
+                        <div>${assessment.overall_comment || 'N/A'}</div>
+                    </div>
+                    <div style="margin: 15px 0; padding: 10px; background: ${totalScore >= 70 ? '#d4edda' : totalScore >= 50 ? '#fff3cd' : '#f8d7da'}; border-radius: 5px;">
+                        <div style="font-weight: bold; margin-bottom: 5px;">推奨判定:</div>
+                        <div style="font-size: 18px; font-weight: bold;">${assessment.recommendation || 'N/A'}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+
+    </script>
+</body>
+</html>
