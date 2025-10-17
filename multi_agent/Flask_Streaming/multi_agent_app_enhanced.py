@@ -78,7 +78,7 @@ async def invoke_async_streaming(payload):
         demographics_agent = Agent(
             model="us.anthropic.claude-sonnet-4-20250514-v1:0",
             callback_handler=None,
-            system_prompt="""あなたは人口統計と多文化共生の専門家です。
+            system_prompt="""あなたは人口統計の専門家です。
 市民意見から対象地域を特定し、その地域の人口動態と言語・文化背景を調査してください。
 
 調査優先順位:
@@ -87,6 +87,12 @@ async def invoke_async_streaming(payload):
 3. 大阪市のデータが不明な場合は他の政令指定都市や日本全体の統計
 
 多文化対応人材が意思決定に使いやすいよう、信頼できる公的統計や調査を引用しながら言語面の課題を定量化してください。
+
+日本語習熟度の判断基準（外国人住民の場合）:
+- fluent (流暢): JLPT N1-N2相当。行政文書の読解、窓口での複雑な相談、就労に支障なし
+- conversational (会話可能): JLPT N3-N4相当。日常会話は可能だが、専門用語や書類手続きに支援が必要
+- basic (基礎レベル): JLPT N5相当またはそれ以下。挨拶・簡単な買い物程度。生活全般で支援が必要
+- needs_support (支援必須): ほぼ日本語不可。通訳・翻訳が常時必要
 
 出力形式:
 ```json
