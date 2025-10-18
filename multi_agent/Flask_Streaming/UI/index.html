@@ -25,7 +25,7 @@
         .agent-name { font-weight: bold; color: #2c3e50; margin-bottom: 5px; }
         .agent-profile { color: #7f8c8d; font-size: 14px; }
         .policy-title { font-size: 24px; font-weight: bold; color: #2c3e50; margin-bottom: 15px; }
-        .policy-content { line-height: 1.8; color: #34495e; }
+        .policy-content { line-height: 1.8; color: #34495e; white-space: pre-wrap; }
         .evaluation-card { background: white; padding: 20px; margin: 15px 0; border-radius: 5px; border: 1px solid #e0e0e0; }
         .rating { display: inline-block; background: #3498db; color: white; padding: 5px 15px; border-radius: 20px; font-weight: bold; }
         .score-bar { background: #e0e0e0; height: 20px; border-radius: 10px; overflow: hidden; margin: 5px 0; }
@@ -36,38 +36,38 @@
 <body>
     <div class="container">
         <h1>🏛️ 市民施策評価システム</h1>
-        
+       
         <div class="input-section">
             <textarea id="promptInput" placeholder="市民意見を入力してください（例：子育て支援の所得制限を撤廃して欲しい）"></textarea>
             <button id="submitBtn" onclick="submitPrompt()">施策評価を開始</button>
         </div>
-        
+       
         <div class="loading" id="loading">
             <div class="spinner"></div>
             <p style="margin-top: 15px; color: #7f8c8d;">処理中です。しばらくお待ちください...</p>
         </div>
-        
+       
         <div class="result" id="result"></div>
     </div>
-
+ 
     <script>
         let streamData = {
             agentDefs: null,
             policy: null,
             evaluations: []
         };
-
+ 
         async function submitPrompt() {
             const prompt = document.getElementById('promptInput').value.trim();
             if (!prompt) {
                 alert('市民意見を入力してください');
                 return;
             }
-
+ 
             const submitBtn = document.getElementById('submitBtn');
             const loading = document.getElementById('loading');
             const result = document.getElementById('result');
-
+ 
             submitBtn.disabled = true;
             loading.style.display = 'block';
             result.style.display = 'block';
@@ -112,28 +112,28 @@
                     <div id="finalContent"></div>
                 </div>
             `;
-            
+           
             streamData = { agentDefs: null, policy: null, evaluations: [] };
-
+ 
             try {
                 const response = await fetch('/api/evaluate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ prompt: prompt })
                 });
-
+ 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 let buffer = '';
-
+ 
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-
+ 
                     buffer += decoder.decode(value, { stream: true });
                     const lines = buffer.split('\n');
                     buffer = lines.pop();
-
+ 
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
                             try {
@@ -167,7 +167,7 @@
                 loading.style.display = 'none';
             }
         }
-
+ 
         function handleStreamEvent(event) {
             switch(event.type) {
                 case 'status':
@@ -214,11 +214,11 @@
                     break;
             }
         }
-
+ 
         function displayResearch(research) {
             const section = document.getElementById('researchSection');
             section.style.display = 'block';
-            
+           
             const content = document.getElementById('researchContent');
             if (research.similar_policies && research.similar_policies.length > 0) {
                 content.innerHTML = research.similar_policies.map(policy => `
@@ -232,16 +232,16 @@
                 content.innerHTML = '<p style="color: #7f8c8d;">類似施策は見つかりませんでした</p>';
             }
         }
-
+ 
         function displayDemographics(demographics) {
             const section = document.getElementById('demographicsSection');
             section.style.display = 'block';
-            
+           
             const content = document.getElementById('demographicsContent');
             const ageDistribution = demographics.age_distribution || {};
             const genderRatio = demographics.gender_ratio || {};
             const familyTypes = demographics.family_types || [];
-            
+           
             content.innerHTML = `
                 <div class="agent-card">
                     <div class="agent-name">対象地域: ${demographics.target_area || '不明'}</div>
@@ -252,16 +252,16 @@
                 </div>
             `;
         }
-
+ 
         function displayReview(review) {
             const section = document.getElementById('reviewSection');
             section.style.display = 'block';
-            
+           
             const content = document.getElementById('reviewContent');
             const approved = review.approved ? '✅ 承認' : '❌ 不承認';
             const approvedColor = review.approved ? '#27ae60' : '#e74c3c';
             const attemptText = review.attempt ? ` (試行 ${review.attempt}/3)` : '';
-            
+           
             content.innerHTML = `
                 <div class="agent-card">
                     <div style="font-size: 18px; font-weight: bold; color: ${approvedColor}; margin-bottom: 10px;">${approved}${attemptText}</div>
@@ -272,11 +272,11 @@
                 </div>
             `;
         }
-
+ 
         function displayAgents(agentDefs) {
             const section = document.getElementById('agentsSection');
             section.style.display = 'block';
-            
+           
             const policyAgentsDiv = document.getElementById('policyAgents');
             policyAgentsDiv.innerHTML = '';
             agentDefs.policy_agents.forEach(agent => {
@@ -287,11 +287,11 @@
                     </div>
                 `;
             });
-            
+           
             const citizenAgentsDiv = document.getElementById('citizenAgents');
             citizenAgentsDiv.innerHTML = '';
             agentDefs.citizen_agents.forEach(agent => {
-                const affectedBadge = agent.is_directly_affected === false ? 
+                const affectedBadge = agent.is_directly_affected === false ?
                     '<span style="background: #95a5a6; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px;">施策対象外</span>' : '';
                 citizenAgentsDiv.innerHTML += `
                     <div class="agent-card">
@@ -301,29 +301,32 @@
                 `;
             });
         }
-
+ 
         function displayPolicy(policy) {
             const section = document.getElementById('policySection');
             section.style.display = 'block';
-            
+ 
             const content = document.getElementById('policyContent');
             const improvedBadge = policy.improved ? `<span style="background: #f39c12; color: white; padding: 3px 10px; border-radius: 5px; font-size: 12px; margin-left: 10px;">改善版 (試行${policy.attempt})</span>` : '';
             content.innerHTML = `
                 <div class="policy-title">${policy.policy_title || 'N/A'}${improvedBadge}</div>
-                <div class="policy-content"><strong>概要:</strong><br>${policy.summary || 'N/A'}</div><br>
-                <div class="policy-content"><strong>推奨施策:</strong><br>${policy.recommended_policy || 'N/A'}</div>
+                <div class="policy-content"><strong>施策概要:</strong><br>${policy.summary || 'N/A'}</div><br>
+                <div class="policy-content"><strong>問題分析:</strong><br>${policy.problem_analysis || 'N/A'}</div><br>
+                <div class="policy-content"><strong>施策詳細:</strong><br>${policy.detailed_policy || 'N/A'}</div><br>
+                <div class="policy-content"><strong>実施計画:</strong><br>${policy.implementation_plan || 'N/A'}</div><br>
+                <div class="policy-content"><strong>期待効果:</strong><br>${policy.expected_effects || 'N/A'}</div>
                 ${policy.referenced_policies && policy.referenced_policies.length > 0 ? `<br><div class="policy-content"><strong>参考事例:</strong> ${policy.referenced_policies.join(', ')}</div>` : ''}
             `;
         }
-
+ 
         function displayEvaluation(evaluation) {
             const section = document.getElementById('evaluationsSection');
             section.style.display = 'block';
-            
+           
             const content = document.getElementById('evaluationsContent');
-            const affectedBadge = evaluation.is_directly_affected === false ? 
+            const affectedBadge = evaluation.is_directly_affected === false ?
                 '<span style="background: #95a5a6; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px;">施策対象外</span>' : '';
-            
+           
             if (evaluation.error) {
                 content.innerHTML += `
                     <div class="evaluation-card">
@@ -344,11 +347,11 @@
                 `;
             }
         }
-
+ 
         function displayFutureEvaluation(futureEval) {
             const section = document.getElementById('futureSection');
             section.style.display = 'block';
-            
+           
             const content = document.getElementById('futureContent');
             content.innerHTML += `
                 <div class="evaluation-card">
@@ -361,15 +364,15 @@
                 </div>
             `;
         }
-
+ 
         function displayFinalAssessment(assessment) {
             const section = document.getElementById('finalSection');
             section.style.display = 'block';
-            
+           
             const content = document.getElementById('finalContent');
             const totalScore = assessment.total_score || 0;
             const scoreColor = totalScore >= 70 ? '#27ae60' : totalScore >= 50 ? '#f39c12' : '#e74c3c';
-            
+           
             content.innerHTML = `
                 <div class="evaluation-card" style="border-left: 4px solid ${scoreColor};">
                     <div style="font-size: 28px; font-weight: bold; color: ${scoreColor}; margin-bottom: 20px; text-align: center;">
@@ -394,8 +397,9 @@
                 </div>
             `;
         }
-
-
+ 
+ 
     </script>
 </body>
 </html>
+ 
